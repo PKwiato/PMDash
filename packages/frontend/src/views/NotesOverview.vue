@@ -10,7 +10,7 @@
           <span class="material-symbols-outlined text-[18px]">filter_list</span>
           <span class="font-label-md text-label-md">Filter</span>
         </button>
-        <button class="px-md py-2 bg-secondary text-white rounded flex items-center gap-2 hover:bg-opacity-90 transition-colors">
+        <button @click="openNewNoteModal" class="px-md py-2 bg-secondary text-white rounded flex items-center gap-2 hover:bg-opacity-90 transition-colors">
           <span class="material-symbols-outlined text-[18px]">add</span>
           <span class="font-label-md text-label-md">Create Note</span>
         </button>
@@ -27,8 +27,18 @@
     <div v-else class="grid grid-cols-12 gap-gutter">
       <!-- Standard Note Cards -->
       <div v-for="note in notesStore.notes" :key="note.id" 
-           class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50 cursor-pointer">
-        <div class="mb-md flex gap-sm" v-if="getJiraKeys(note.title).length > 0">
+           @click="openEditNoteModal(note)"
+           class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50 cursor-pointer relative">
+        
+        <button 
+          @click.stop="confirmDeleteNote(note)" 
+          class="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-error hover:bg-error/10 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+          title="Delete Note"
+        >
+          <span class="material-symbols-outlined text-[20px]">delete</span>
+        </button>
+
+        <div class="mb-md flex gap-sm pr-10" v-if="getJiraKeys(note.title).length > 0">
           <span v-for="key in getJiraKeys(note.title)" :key="key" 
                 class="font-label-md text-label-md px-2 py-0.5 rounded flex items-center gap-1"
                 :class="getJiraStatusClass(key)">
@@ -57,7 +67,7 @@
         <p class="font-body-sm text-body-sm text-primary-fixed-dim mb-lg relative z-10">
           Don't let inspiration slip away. Jot down a quick scratchpad note that isn't tied to a task yet.
         </p>
-        <button class="mt-auto w-fit px-4 py-2 bg-secondary-container text-on-secondary-container rounded font-label-md text-label-md hover:bg-secondary-fixed transition-colors relative z-10">
+        <button @click="openNewNoteModal" class="mt-auto w-fit px-4 py-2 bg-secondary-container text-on-secondary-container rounded font-label-md text-label-md hover:bg-secondary-fixed transition-colors relative z-10">
           Start Scratchpad
         </button>
       </div>
@@ -92,16 +102,154 @@
         </div>
       </div>
     </div>
+
+    <!-- Note Editor Modal -->
+    <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col h-[80vh] overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+          <input 
+            v-model="activeNoteTitle" 
+            placeholder="Note Title" 
+            :disabled="!!activeNoteId"
+            class="font-headline-md text-headline-md text-slate-900 bg-transparent border-none outline-none flex-1 disabled:opacity-50 disabled:cursor-not-allowed" 
+          />
+          <button @click="closeModal" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-[24px]">close</span>
+          </button>
+        </div>
+        
+        <div class="flex-1 overflow-hidden flex flex-col p-4 bg-white">
+          <div class="border border-slate-200 rounded-lg flex-1 flex flex-col overflow-hidden focus-within:border-teal-500 transition-colors">
+            <div class="px-3 py-2 border-b border-slate-100 bg-slate-50 flex gap-1">
+              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_bold</span></button>
+              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_italic</span></button>
+            </div>
+            <div 
+              ref="editorRef"
+              class="flex-1 p-4 font-body-md text-slate-800 outline-none overflow-y-auto whitespace-pre-wrap" 
+              contenteditable="true"
+              @input="handleInput"
+            ></div>
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button @click="closeModal" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded font-label-md">Cancel</button>
+          <button @click="saveNote" :disabled="saving" class="px-4 py-2 bg-secondary text-white rounded font-label-md hover:bg-secondary/90 transition-colors flex items-center gap-2">
+            <span v-if="saving" class="material-symbols-outlined animate-spin text-[16px]">sync</span>
+            {{ saving ? 'Saving...' : 'Save Note' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref, nextTick } from 'vue';
 import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
+import { useProjectsStore } from '../stores/projectsStore';
 
 const notesStore = useNotesStore();
 const jiraStore = useJiraStore();
+const projectsStore = useProjectsStore();
+
+const isModalOpen = ref(false);
+const activeNoteId = ref<string | null>(null);
+const activeNoteTitle = ref('');
+const activeNoteBody = ref('');
+const editorRef = ref<HTMLElement | null>(null);
+const saving = ref(false);
+
+function openNewNoteModal() {
+  activeNoteId.value = null;
+  activeNoteTitle.value = '';
+  activeNoteBody.value = '';
+  isModalOpen.value = true;
+  nextTick(() => {
+    if (editorRef.value) {
+      editorRef.value.innerHTML = '';
+      editorRef.value.focus();
+    }
+  });
+}
+
+async function openEditNoteModal(note: any) {
+  activeNoteId.value = note.id;
+  activeNoteTitle.value = note.title;
+  activeNoteBody.value = 'Loading...';
+  isModalOpen.value = true;
+  
+  if (editorRef.value) {
+    editorRef.value.innerHTML = activeNoteBody.value;
+  }
+
+  try {
+    await notesStore.fetchNoteDetail(note.id);
+    if (notesStore.currentNote) {
+      activeNoteTitle.value = notesStore.currentNote.title;
+      activeNoteBody.value = notesStore.currentNote.body || '';
+      if (editorRef.value) {
+        editorRef.value.innerHTML = activeNoteBody.value;
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load note detail", err);
+    activeNoteBody.value = 'Error loading note.';
+    if (editorRef.value) {
+      editorRef.value.innerHTML = activeNoteBody.value;
+    }
+  }
+}
+
+function closeModal() {
+  isModalOpen.value = false;
+}
+
+function handleInput() {
+  if (editorRef.value) {
+    activeNoteBody.value = editorRef.value.innerHTML;
+  }
+}
+
+async function saveNote() {
+  if (!activeNoteTitle.value.trim() && !activeNoteId.value) {
+    alert("Please enter a title");
+    return;
+  }
+  
+  saving.value = true;
+  try {
+    if (activeNoteId.value) {
+      // Update existing note
+      await notesStore.updateNote(activeNoteId.value, activeNoteBody.value, activeNoteTitle.value);
+    } else {
+      // Create new note
+      let project = projectsStore.projects.find(p => p.title === 'Scratchpad' || p.slug === 'scratchpad');
+      if (!project) {
+        project = await projectsStore.createProject('Scratchpad', 'General notes and scratchpad');
+      }
+      await notesStore.createNote(project.id, activeNoteTitle.value, activeNoteBody.value);
+    }
+    await notesStore.fetchAllNotes();
+    closeModal();
+  } catch (err) {
+    alert('Failed to save note');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function confirmDeleteNote(note: any) {
+  if (confirm(`Are you sure you want to delete "${cleanTitle(note.title)}"?`)) {
+    try {
+      await notesStore.deleteNote(note.id);
+    } catch (err) {
+      alert("Failed to delete note.");
+    }
+  }
+}
 
 const jiraKeyRegex = /[A-Z]+-\d+/g;
 

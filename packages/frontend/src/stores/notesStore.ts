@@ -128,6 +128,23 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
+  async function deleteNote(id: string) {
+    loading.value = true;
+    error.value = null;
+    try {
+      await axios.delete(`${API_BASE}/notes/${id}`);
+      notes.value = notes.value.filter(n => n.id !== id);
+      if (currentNote.value?.id === id) {
+        currentNote.value = null;
+      }
+    } catch (err: any) {
+      error.value = err.message || 'Failed to delete note';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     notes,
     currentNote,
@@ -138,6 +155,7 @@ export const useNotesStore = defineStore('notes', () => {
     fetchNoteByJiraKey,
     createNote,
     updateNote,
+    deleteNote,
     discoverJiraTasksInNotes
   };
 });
