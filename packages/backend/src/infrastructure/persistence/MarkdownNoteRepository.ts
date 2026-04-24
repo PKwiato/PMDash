@@ -43,6 +43,26 @@ export class MarkdownNoteRepository implements INoteRepository {
     return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
+  async findAll(): Promise<Note[]> {
+    const paths = await fg('projects/*/notes/*.md', {
+      cwd: this.dataDir,
+      onlyFiles: true,
+      absolute: true,
+    });
+    
+    const notes: Note[] = [];
+    for (const filePath of paths) {
+      try {
+        const data = await this.parser.parseFile(filePath);
+        if (data.type === 'note') notes.push(this.toNote(data));
+      } catch {
+        /* skip */
+      }
+    }
+
+    return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+
   async findById(id: string): Promise<Note | null> {
     const filePath = await this.findFilePathById(id);
     if (!filePath) return null;

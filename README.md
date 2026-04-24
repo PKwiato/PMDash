@@ -20,10 +20,13 @@ Lokalny dashboard do zarządzania projektami dla **jednego użytkownika** (bez l
 
 Pełna specyfikacja funkcjonalna i struktur katalogów: [`.cursor/PM_SYSTEM_SPEC.md`](.cursor/PM_SYSTEM_SPEC.md).
 
-## Funkcje (MVP)
+## Funkcje (MVP+)
 
-- **Projekty wyłącznie lokalne** — `POST /api/projects` tworzy projekt w Markdownzie bez Jiry. W odpowiedziach API pola `jiraLinked` i `source` (`local` albo `jira`); na liście w UI widać etykietę „Tylko lokalnie”.
-- **Notatki przy projekcie** — pliki `data/projects/{slug}/notes/{note-slug}.md` (`type: note`). API: `GET/POST /api/projects/:projectId/notes`, `GET/PUT/DELETE /api/notes/:id`. W przeglądarce: widok projektu (`/projects/:id`) — lista, dodawanie, edycja Markdown, usuwanie.
+- **Projekty wyłącznie lokalne** — `POST /api/projects` tworzy projekt w Markdownzie bez Jiry. W odpowiedziach API pola `jiraLinked` i `source` (`local` albo `jira`).
+- **Integracja z Jira Cloud** — Pobieranie zadań z tablic (Board), wyświetlanie statusów, osób przypisanych i priorytetów w czasie rzeczywistym.
+- **Notatki przy projekcie** — pliki `data/projects/{slug}/notes/{note-slug}.md`. API: `GET/POST /api/projects/:projectId/notes`, `GET/PUT/DELETE /api/notes/:id`, oraz globalny listing `GET /api/notes`.
+- **Auto-scan zadań w notatkach** — System automatycznie wykrywa klucze Jira (np. `ABC-123`) w treści notatek i pobiera ich aktualny status z API Jira, wyświetlając go w UI obok notatki.
+- **Prywatne notatki do zadań** — Możliwość przypisania notatki Markdown bezpośrednio do konkretnego zadania Jira (przez umieszczenie klucza w tytule lub treści).
 
 Plan wdrożenia (historia): [`.cursor/PLAN_NOTES_AND_LOCAL_PROJECTS.md`](.cursor/PLAN_NOTES_AND_LOCAL_PROJECTS.md).
 

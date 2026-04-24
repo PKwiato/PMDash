@@ -30,8 +30,16 @@ Kopia robocza planu funkcjonalnego (źródło: Cursor plan „Notatki i projekty
 - Widok `/projects/:id` — lista notatek, dodawanie, edycja textarea, usuwanie.
 
 ## Kolejność implementacji
-
-1. Backend: CreateProject + POST + `jiraLinked` / `source`.
-2. Backend: Note + repozytorium + CRUD + `app.ts`.
-3. Frontend: router + widoki.
-4. Dokumentacja: `PM_SYSTEM_SPEC.md`, `README.md`.
+- [x] **Faza 1: Notatki i projekty lokalne**
+    1. Backend: CreateProject + POST + `jiraLinked` / `source`.
+    2. Backend: Note + repozytorium + CRUD + `app.ts`.
+    3. Frontend: router + widoki (Projects, Notes).
+- [x] **Faza 2: Integracja Jira i Auto-scan**
+    1. Frontend: Pinia `jiraStore` (board fetch, bulk lookup).
+    2. Frontend: Pinia `notesStore` (auto-scan logic).
+    3. Frontend: `TaskListView` (board data), `TaskDetailView` (live status + private note editor).
+    4. Frontend: Dashboard (dynamic stats).
+- [ ] **Faza 3: Polerowanie i konfiguracja**
+    1. Konfigurowalne Board ID.
+    2. Obsługa błędów API Jira.
+    3. Wsparcie dla wielu tablic.

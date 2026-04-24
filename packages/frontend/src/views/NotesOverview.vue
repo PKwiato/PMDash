@@ -16,142 +16,78 @@
         </button>
       </div>
     </header>
+
+    <div v-if="notesStore.loading" class="flex items-center justify-center py-20">
+      <span class="material-symbols-outlined animate-spin text-[32px] text-secondary">sync</span>
+    </div>
+    <div v-else-if="notesStore.error" class="text-center py-20 text-error">
+      <p class="font-label-md">{{ notesStore.error }}</p>
+    </div>
     <!-- Bento Grid Layout for Notes -->
-    <div class="grid grid-cols-12 gap-gutter">
-      <!-- Featured Card (Large) -->
-      <div class="col-span-12 lg:col-span-8 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50">
-        <div class="flex justify-between items-start mb-md">
-          <div class="flex items-center gap-sm">
-            <span class="font-label-md text-label-md text-secondary bg-secondary-container px-2 py-0.5 rounded">JM-452</span>
-            <span class="text-slate-300 font-light">|</span>
-            <span class="font-label-sm text-label-sm text-slate-400 uppercase tracking-tighter">Documentation Draft</span>
-          </div>
-          <span class="material-symbols-outlined text-slate-300 group-hover:text-slate-600 cursor-pointer">more_vert</span>
-        </div>
-        <h3 class="font-headline-lg text-headline-lg text-slate-900 mb-sm">Architecture Review: Microservices Transition Phase 2</h3>
-        <p class="font-body-md text-body-md text-slate-600 flex-1 line-clamp-3">
-          Initial thoughts on migrating the legacy billing module. We need to ensure zero downtime during the database cutover. The primary concern remains the eventual consistency issues between the user profile service and the transaction log. Consider implementing a temporary dual-write mechanism...
-        </p>
-        <div class="mt-lg pt-md border-t border-slate-100 flex items-center justify-between">
-          <div class="flex items-center gap-sm text-slate-400 font-body-sm text-body-sm">
-            <span class="material-symbols-outlined text-[16px]">schedule</span>
-            <span>Last modified 2 hours ago</span>
-          </div>
-          <div class="flex -space-x-2">
-            <div class="w-6 h-6 rounded-full border-2 border-white bg-teal-100 flex items-center justify-center text-[10px] font-bold text-teal-700">MT</div>
-          </div>
-        </div>
-      </div>
-      <!-- Side Card (Vertical) -->
-      <div class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50">
-        <div class="flex justify-between items-start mb-md">
-          <span class="font-label-md text-label-md text-on-secondary-container bg-surface-container-high px-2 py-0.5 rounded">Personal</span>
-          <span class="material-symbols-outlined text-slate-300 group-hover:text-slate-600 cursor-pointer">push_pin</span>
-        </div>
-        <h3 class="font-headline-md text-headline-md text-slate-900 mb-sm">One-on-One Prep: Alex Q4</h3>
-        <p class="font-body-sm text-body-sm text-slate-500 mb-md line-clamp-4">
-          - Discuss career growth towards Lead Engineer.<br/>
-          - Review PR velocity improvements.<br/>
-          - Clarify expectations on architectural ownership.<br/>
-          - Address feedback regarding cross-team communication.
-        </p>
-        <div class="mt-auto pt-md border-t border-slate-100 flex items-center gap-sm text-slate-400 font-body-sm text-body-sm">
-          <span class="material-symbols-outlined text-[16px]">calendar_today</span>
-          <span>Modified Oct 12, 2023</span>
-        </div>
-      </div>
+    <div v-else class="grid grid-cols-12 gap-gutter">
       <!-- Standard Note Cards -->
-      <div class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50">
-        <div class="mb-md">
-          <span class="font-label-md text-label-md text-secondary bg-secondary-container px-2 py-0.5 rounded">JM-102</span>
+      <div v-for="note in notesStore.notes" :key="note.id" 
+           class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50 cursor-pointer">
+        <div class="mb-md flex gap-sm" v-if="getJiraKeys(note.title).length > 0">
+          <span v-for="key in getJiraKeys(note.title)" :key="key" 
+                class="font-label-md text-label-md px-2 py-0.5 rounded flex items-center gap-1"
+                :class="getJiraStatusClass(key)">
+            {{ key }}
+            <span class="text-[10px] uppercase ml-1">{{ getJiraStatusText(key) }}</span>
+          </span>
         </div>
-        <h3 class="font-headline-md text-headline-md text-slate-900 mb-sm">Bug Analysis: Cache Invalidation</h3>
+        <h3 class="font-headline-md text-headline-md text-slate-900 mb-sm">{{ cleanTitle(note.title) }}</h3>
         <p class="font-body-sm text-body-sm text-slate-500 line-clamp-2">
-          Found intermittent issue with Redis keys not expiring on user logout. Likely race condition in auth service.
+          Project: {{ note.projectId }}
         </p>
-        <div class="mt-md pt-md border-t border-slate-100 flex items-center gap-sm text-slate-400 font-body-sm text-body-sm">
-          <span class="material-symbols-outlined text-[16px]">schedule</span>
-          <span>Yesterday</span>
+        <div class="mt-md pt-md border-t border-slate-100 flex items-center justify-between gap-sm text-slate-400 font-body-sm text-body-sm">
+          <div class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-[16px]">schedule</span>
+            <span>{{ new Date(note.updatedAt).toLocaleDateString() }}</span>
+          </div>
         </div>
       </div>
-      <div class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50">
-        <div class="mb-md">
-          <span class="font-label-md text-label-md text-secondary bg-secondary-container px-2 py-0.5 rounded">JM-219</span>
-        </div>
-        <h3 class="font-headline-md text-headline-md text-slate-900 mb-sm">Meeting Notes: API V2 Specs</h3>
-        <p class="font-body-sm text-body-sm text-slate-500 line-clamp-2">
-          Team agreed to use GraphQL for the new mobile endpoints. Research Apollo Server setup.
-        </p>
-        <div class="mt-md pt-md border-t border-slate-100 flex items-center gap-sm text-slate-400 font-body-sm text-body-sm">
-          <span class="material-symbols-outlined text-[16px]">schedule</span>
-          <span>3 days ago</span>
-        </div>
-      </div>
-      <div class="col-span-12 md:col-span-6 lg:col-span-4 group bg-white border border-slate-200 rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-slate-50">
-        <div class="mb-md flex gap-sm">
-          <span class="font-label-md text-label-md text-secondary bg-secondary-container px-2 py-0.5 rounded">JM-881</span>
-          <span class="font-label-md text-label-md text-error bg-error-container px-2 py-0.5 rounded">Urgent</span>
-        </div>
-        <h3 class="font-headline-md text-headline-md text-slate-900 mb-sm">Deployment Checklist</h3>
-        <p class="font-body-sm text-body-sm text-slate-500 line-clamp-2">
-          1. Run migration scripts.<br/>
-          2. Check Sentry for error spikes.<br/>
-          3. Notify CS team.
-        </p>
-        <div class="mt-md pt-md border-t border-slate-100 flex items-center gap-sm text-slate-400 font-body-sm text-body-sm">
-          <span class="material-symbols-outlined text-[16px]">schedule</span>
-          <span>1 week ago</span>
-        </div>
-      </div>
+      
       <!-- Asymmetric Accent Card -->
-      <div class="col-span-12 lg:col-span-4 bg-primary-container text-on-primary-container rounded-xl p-lg flex flex-col relative overflow-hidden group">
+      <div class="col-span-12 lg:col-span-4 bg-primary-container text-on-primary-container rounded-xl p-lg flex flex-col relative overflow-hidden group cursor-pointer hover:bg-primary-container/90 transition-colors">
         <div class="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
           <span class="material-symbols-outlined text-[120px]">lightbulb</span>
         </div>
         <h3 class="font-headline-md text-headline-md text-white mb-md">Quick Idea?</h3>
-        <p class="font-body-sm text-body-sm text-primary-fixed-dim mb-lg">
+        <p class="font-body-sm text-body-sm text-primary-fixed-dim mb-lg relative z-10">
           Don't let inspiration slip away. Jot down a quick scratchpad note that isn't tied to a task yet.
         </p>
-        <button class="mt-auto w-fit px-4 py-2 bg-secondary-container text-on-secondary-container rounded font-label-md text-label-md hover:bg-secondary-fixed transition-colors">
+        <button class="mt-auto w-fit px-4 py-2 bg-secondary-container text-on-secondary-container rounded font-label-md text-label-md hover:bg-secondary-fixed transition-colors relative z-10">
           Start Scratchpad
         </button>
       </div>
+      
       <!-- Large Table-style note entry -->
-      <div class="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div class="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden mt-xl">
         <div class="p-md border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h3 class="font-label-md text-label-md text-slate-500 uppercase tracking-wider">Recently Referenced Tasks</h3>
           <button class="text-teal-600 font-label-sm text-label-sm hover:underline">View All Tasks</button>
         </div>
         <div class="divide-y divide-slate-100">
-          <div class="p-md flex items-center justify-between hover:bg-slate-50 transition-colors">
+          <div v-for="issue in referencedJiraTasks" :key="issue.key" class="p-md flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer">
             <div class="flex items-center gap-md">
-              <span class="font-label-md text-label-md text-secondary w-16">JM-901</span>
+              <span class="font-label-md text-label-md text-secondary w-16">{{ issue.key }}</span>
               <div>
-                <p class="font-body-md text-body-md text-slate-900">Refactor Auth Middleware</p>
-                <p class="text-[11px] text-slate-400">Linked note: "Security Audit Findings"</p>
+                <p class="font-body-md text-body-md text-slate-900">{{ issue.summary }}</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="inline-block w-2 h-2 rounded-full" :class="{
+                      'bg-green-500': issue.status === 'Done',
+                      'bg-blue-500': issue.status === 'In Progress',
+                      'bg-slate-300': !['Done', 'In Progress'].includes(issue.status)
+                  }"></span>
+                  <span class="text-[11px] text-slate-500 uppercase">{{ issue.status }}</span>
+                </div>
               </div>
             </div>
-            <span class="text-body-sm text-slate-400">Oct 24, 2023</span>
+            <span class="text-body-sm text-slate-400">Jira Issue</span>
           </div>
-          <div class="p-md flex items-center justify-between hover:bg-slate-50 transition-colors">
-            <div class="flex items-center gap-md">
-              <span class="font-label-md text-label-md text-secondary w-16">JM-772</span>
-              <div>
-                <p class="font-body-md text-body-md text-slate-900">Update Dashboard UI</p>
-                <p class="text-[11px] text-slate-400">Linked note: "Design Feedback - Marketing"</p>
-              </div>
-            </div>
-            <span class="text-body-sm text-slate-400">Oct 22, 2023</span>
-          </div>
-          <div class="p-md flex items-center justify-between hover:bg-slate-50 transition-colors">
-            <div class="flex items-center gap-md">
-              <span class="font-label-md text-label-md text-secondary w-16">JM-104</span>
-              <div>
-                <p class="font-body-md text-body-md text-slate-900">Fix Footer Links</p>
-                <p class="text-[11px] text-slate-400">No note attached</p>
-              </div>
-            </div>
-            <span class="text-body-sm text-slate-400">Oct 21, 2023</span>
+          <div v-if="referencedJiraTasks.length === 0" class="p-md text-center text-slate-500 font-body-sm">
+            No Jira tasks referenced in current notes.
           </div>
         </div>
       </div>
@@ -160,4 +96,48 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, computed } from 'vue';
+import { useNotesStore } from '../stores/notesStore';
+import { useJiraStore } from '../stores/jiraStore';
+
+const notesStore = useNotesStore();
+const jiraStore = useJiraStore();
+
+const jiraKeyRegex = /[A-Z]+-\d+/g;
+
+function getJiraKeys(text: string): string[] {
+  const matches = text.match(jiraKeyRegex);
+  return matches ? Array.from(new Set(matches)) : [];
+}
+
+function cleanTitle(title: string): string {
+  return title.replace(jiraKeyRegex, '').trim().replace(/^[-:]\s*/, '');
+}
+
+function getJiraStatusText(key: string): string {
+  const issue = jiraStore.issues.find(i => i.key === key);
+  return issue ? issue.status : 'Unknown';
+}
+
+function getJiraStatusClass(key: string): string {
+  const status = getJiraStatusText(key);
+  if (status === 'Done') return 'text-green-800 bg-green-100 border-green-200';
+  if (status === 'In Progress') return 'text-secondary bg-secondary-container border-secondary-container';
+  if (status === 'Unknown') return 'text-slate-500 bg-slate-100 border-slate-200';
+  return 'text-slate-700 bg-surface-container-high border-slate-200';
+}
+
+const referencedJiraTasks = computed(() => {
+  const keys = new Set<string>();
+  notesStore.notes.forEach(note => {
+    getJiraKeys(note.title).forEach(k => keys.add(k));
+  });
+  return jiraStore.issues.filter(i => keys.has(i.key));
+});
+
+onMounted(async () => {
+  await notesStore.fetchAllNotes();
+  // Discover Jira keys in fetched notes
+  await notesStore.discoverJiraTasksInNotes(notesStore.notes);
+});
 </script>

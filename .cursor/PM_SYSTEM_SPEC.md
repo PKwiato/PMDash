@@ -2233,13 +2233,14 @@ Implementuj w tej kolejności — każdy krok jest niezależny i testowalny:
 27. `apiClient.ts` (axios)
 28. Router z wszystkimi routes
 29. Wszystkie typy: `project.types.ts`, `epic.types.ts`, `task.types.ts`, `jira.types.ts`, `tag.types.ts`
-30. Pinia stores: `projectStore`, `epicStore`, `taskStore`, `jiraStore`, `tagStore`
+30. Pinia stores: `projectStore`, `epicStore`, `taskStore`, `jiraStore`, `tagStore`, `notesStore`, `projectsStore`
 31. Shared komponenty: `BaseButton`, `BaseModal`, `BaseInput`, `StatusBadge`, `PriorityBadge`
 32. Feature: Projects (ProjectsView, ProjectDetailView, ProjectCard, ProjectForm)
 33. Feature: Epics (EpicsView, EpicDetailView, EpicProgress z dwoma paskami)
-34. Feature: Tasks (TaskDetailView, TaskCard, JiraLinkBadge)
-35. Feature: Jira (JiraBoardView, IssuePicker modal, SyncButton, BoardProgressChart)
+34. Feature: Tasks (TaskDetailView, TaskCard, JiraLinkBadge, Private Note Editor)
+35. Feature: Jira (JiraBoardView, IssuePicker modal, SyncButton, BoardProgressChart, TaskDetailView live status)
 36. Feature: Tags (TagsView, TagCloud, TagFilterPanel)
+37. Feature: Notes (NotesOverview, NoteCard z auto-scan statusami Jira)
 
 ---
 
@@ -2255,8 +2256,8 @@ Implementuj w tej kolejności — każdy krok jest niezależny i testowalny:
 
 ### 13.3 Sync z Jirą
 - Sync jest **on-demand** (nie polling) — użytkownik inicjuje przez UI lub `POST /api/jira/sync`
-- Ostatnio znany status Jiry jest zapisany w `jira_status` i `jira_synced_at` — aplikacja działa offline
-- Nigdy nie piszemy z powrotem do Jiry — jesteśmy consumer-only
+- **Auto-scan (Volatile Hydration)**: Frontend skanuje treść notatek w poszukiwaniu wzorca `[A-Z]+-\d+`. Jeśli znajdzie klucze Jira, pobiera ich statusy przez `jiraStore.fetchIssuesByKeys()` i wyświetla w UI. Dane te nie są zapisywane do plików `.md` automatycznie (tylko widok).
+- **Notatki powiązane z zadaniami**: Notatka jest uznawana za powiązaną z zadaniem Jira, jeśli jej tytuł zawiera klucz zadania. `TaskDetailView` pozwala na edycję takiej notatki z podglądem live statusu zadania.
 
 ### 13.4 Archiwizacja
 - Archiwizacja = fizyczne przeniesienie folderu `projects/{slug}/` → `archive/{slug}/`
@@ -2282,4 +2283,4 @@ Aliasy umożliwiają szybkie znajdowanie tasków przez Jira issue key (Cmd+O →
 
 ---
 
-*Koniec specyfikacji. Wersja: 1.0 | Data: 2025-04-23*
+*Koniec specyfikacji. Wersja: 1.1 | Data: 2026-04-24*

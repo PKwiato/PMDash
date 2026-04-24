@@ -1,5 +1,6 @@
 import { DeleteNote } from '../../../application/use-cases/notes/DeleteNote';
 import { GetNote } from '../../../application/use-cases/notes/GetNote';
+import { ListAllNotes } from '../../../application/use-cases/notes/ListAllNotes';
 import { UpdateNote } from '../../../application/use-cases/notes/UpdateNote';
 import type { INoteRepository } from '../../../domain/ports/INoteRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
@@ -8,9 +9,19 @@ import { Router } from 'express';
 
 export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteRepository) {
   const r = Router();
+  const listAllNotes = new ListAllNotes(noteRepo);
   const getNote = new GetNote(noteRepo);
   const updateNote = new UpdateNote(noteRepo, projectRepo);
   const deleteNote = new DeleteNote(noteRepo);
+
+  r.get('/', async (_req, res, next) => {
+    try {
+      const notes = await listAllNotes.execute();
+      res.json(notes.map(noteToListJson));
+    } catch (e) {
+      next(e);
+    }
+  });
 
   r.get('/:id', async (req, res, next) => {
     try {
