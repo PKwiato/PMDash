@@ -39,3 +39,14 @@ export interface JiraBoardProjectDto {
   key: string;
   name: string;
 }
+
+export interface JiraIssueDto {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  assignee: string | null;
+  priority: string;
+  issueType: string;
+  epicKey: string | null;
+}

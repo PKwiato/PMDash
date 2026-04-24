@@ -42,5 +42,6 @@ export interface IJiraAdapter {
   listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
   getIssue(issueKey: string): Promise<JiraIssue>;
+  listIssuesByKeys(keys: string[]): Promise<JiraIssue[]>;
   getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
 }

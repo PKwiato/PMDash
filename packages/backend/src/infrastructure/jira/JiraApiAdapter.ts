@@ -97,4 +97,18 @@ export class JiraApiAdapter implements IJiraAdapter {
     }
     return { total: data.issues.length, byStatus };
   }
+
+  async listIssuesByKeys(keys: string[]): Promise<JiraIssue[]> {
+    if (keys.length === 0) return [];
+    const jql = `key in ("${keys.join('","')}")`;
+    const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
+      '/search',
+      {
+        jql,
+        fields: 'summary,status,assignee,priority,parent,issuetype,customfield_10014',
+        maxResults: String(keys.length),
+      },
+    );
+    return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
+  }
 }

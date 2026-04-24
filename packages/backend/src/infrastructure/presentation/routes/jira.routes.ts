@@ -42,5 +42,41 @@ export function jiraRouter(
     }
   });
 
+  r.get('/boards/:boardId/issues', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const boardId = Number((req.params as { boardId: string }).boardId);
+      if (!Number.isFinite(boardId) || boardId < 1) {
+        res.status(400).json({ error: 'Invalid boardId' });
+        return;
+      }
+      const issues = await jiraAdapter.listBoardIssues(boardId);
+      res.json(issues);
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  r.post('/issues/bulk', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const { keys } = req.body as { keys: string[] };
+      if (!Array.isArray(keys) || keys.length === 0) {
+        res.json([]);
+        return;
+      }
+      const issues = await jiraAdapter.listIssuesByKeys(keys);
+      res.json(issues);
+    } catch (e) {
+      next(e);
+    }
+  });
+
   return r;
 }

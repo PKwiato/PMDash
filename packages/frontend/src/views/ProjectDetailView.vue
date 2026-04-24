@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import type {
   JiraBoardListItem,
-  JiraBoardProjectDto,
+  JiraIssueDto,
   NoteDetail,
   NoteListItem,
   ProjectDto,
@@ -26,12 +26,15 @@ const jiraConfigured = ref(false);
 const jiraConfigChecked = ref(false);
 const jiraBoards = ref<JiraBoardListItem[]>([]);
 const jiraBoardId = ref<number | null>(null);
-const jiraProjects = ref<JiraBoardProjectDto[]>([]);
-const jiraProjectsLoading = ref(false);
+const jiraIssues = ref<JiraIssueDto[]>([]);
+const jiraIssuesLoading = ref(false);
 const jiraError = ref<string | null>(null);
 
-function markdownForJiraProject(p: JiraBoardProjectDto): string {
-  return `\n## Projekt Jira: ${p.name}\n\n- **Klucz:** \`${p.key}\`\n- **ID:** ${p.id}\n\n`;
+const trackedIssues = ref<JiraIssueDto[]>([]);
+const trackingLoading = ref(false);
+
+function markdownForJiraIssue(i: JiraIssueDto): string {
+  return `\n### [${i.key}] ${i.summary}\n\n- **Status:** ${i.status}\n- **Typ:** ${i.issueType}\n- **Priorytet:** ${i.priority}\n${i.assignee ? `- **Przypisany:** ${i.assignee}\n` : ''}\n`;
 }
 
 async function loadJiraBoards() {
@@ -48,9 +51,9 @@ async function loadJiraBoards() {
     } else {
       jiraBoardId.value = null;
     }
-    await loadJiraProjects();
+    await loadJiraIssues();
   } catch (e) {
-    jiraProjects.value = [];
+    jiraIssues.value = [];
     if (isAxiosError(e) && e.response?.status === 503) {
       jiraConfigured.value = false;
       jiraBoards.value = [];
@@ -63,36 +66,36 @@ async function loadJiraBoards() {
   }
 }
 
-async function loadJiraProjects() {
+async function loadJiraIssues() {
   if (jiraBoardId.value == null) {
-    jiraProjects.value = [];
+    jiraIssues.value = [];
     return;
   }
-  jiraProjectsLoading.value = true;
+  jiraIssuesLoading.value = true;
   jiraError.value = null;
   try {
-    const { data } = await axios.get<JiraBoardProjectDto[]>(
-      `/api/jira/boards/${jiraBoardId.value}/projects`,
+    const { data } = await axios.get<JiraIssueDto[]>(
+      `/api/jira/boards/${jiraBoardId.value}/issues`,
     );
-    jiraProjects.value = data;
+    jiraIssues.value = data;
   } catch (e) {
-    jiraProjects.value = [];
+    jiraIssues.value = [];
     jiraError.value = e instanceof Error ? e.message : String(e);
   } finally {
-    jiraProjectsLoading.value = false;
+    jiraIssuesLoading.value = false;
   }
 }
 
-async function addJiraProjectToNotes(p: JiraBoardProjectDto) {
+async function addJiraIssueToNotes(i: JiraIssueDto) {
   jiraError.value = null;
-  const block = markdownForJiraProject(p);
+  const block = markdownForJiraIssue(i);
   try {
     if (selectedId.value) {
       editBody.value += block;
       await saveNote();
     } else {
       const { data } = await axios.post<NoteListItem>(`/api/projects/${projectId.value}/notes`, {
-        title: `Jira — ${p.key}: ${p.name}`,
+        title: `Jira — ${i.key}: ${i.summary}`,
         body: `## Treść\n\n${block}`,
       });
       await loadNotes();
@@ -102,6 +105,33 @@ async function addJiraProjectToNotes(p: JiraBoardProjectDto) {
     jiraError.value = e instanceof Error ? e.message : String(e);
   }
 }
+
+async function syncTrackedIssues() {
+  if (!editBody.value || !jiraConfigured.value) {
+    trackedIssues.value = [];
+    return;
+  }
+  const keys = [...new Set(editBody.value.match(/[A-Z]+-[0-9]+/g) || [])];
+  if (keys.length === 0) {
+    trackedIssues.value = [];
+    return;
+  }
+  trackingLoading.value = true;
+  try {
+    const { data } = await axios.post<JiraIssueDto[]>('/api/jira/issues/bulk', { keys });
+    trackedIssues.value = data;
+  } catch (e) {
+    console.error('Failed to sync issues:', e);
+  } finally {
+    trackingLoading.value = false;
+  }
+}
+
+let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(editBody, () => {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(syncTrackedIssues, 1000);
+});
 
 async function loadProject() {
   const { data } = await axios.get<ProjectDto>(`/api/projects/${projectId.value}`);
@@ -136,6 +166,7 @@ async function selectNote(id: string) {
     const { data } = await axios.get<NoteDetail>(`/api/notes/${id}`);
     editTitle.value = data.title;
     editBody.value = data.body;
+    await syncTrackedIssues();
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
   }
@@ -211,7 +242,7 @@ watch(projectId, loadAll);
     <p v-if="error" class="err">{{ error }}</p>
 
     <section v-if="project" class="jira-panel">
-      <h2>Projekty z boarda Jiry</h2>
+      <h2>Taski z boarda Jiry</h2>
       <p v-if="!jiraConfigChecked" class="muted">Sprawdzanie konfiguracji Jiry…</p>
       <template v-else-if="!jiraConfigured">
         <p class="jira-unconfigured">
@@ -222,33 +253,39 @@ watch(projectId, loadAll);
       </template>
       <template v-else>
         <p class="jira-hint">
-          Wybierz board, potem projekt — zostanie dopisany do otwartej notatki albo utworzona zostanie
+          Wybierz board, potem task — zostanie dopisany do otwartej notatki albo utworzona zostanie
           nowa.
         </p>
         <p v-if="jiraBoards.length === 0" class="muted">Brak boardów widocznych dla konta Jiry.</p>
         <label v-else class="jira-board-label">
           Board
-          <select v-model.number="jiraBoardId" class="jira-select" @change="loadJiraProjects">
+          <select v-model.number="jiraBoardId" class="jira-select" @change="loadJiraIssues">
             <option v-for="b in jiraBoards" :key="b.id" :value="b.id">
               {{ b.name }} ({{ b.id }})
             </option>
           </select>
         </label>
         <p v-if="jiraError" class="err">{{ jiraError }}</p>
-        <p v-if="jiraProjectsLoading" class="muted">Ładowanie projektów…</p>
+        <p v-if="jiraIssuesLoading" class="muted">Ładowanie tasków…</p>
         <ul v-else-if="jiraBoardId != null" class="jira-projects">
-          <li v-for="jp in jiraProjects" :key="`${jp.id}-${jp.key}`">
-            <span class="jira-proj-meta">{{ jp.key }} — {{ jp.name }}</span>
-            <button type="button" class="btn-jira-add" @click="addJiraProjectToNotes(jp)">
+          <li v-for="ji in jiraIssues" :key="ji.id">
+            <div class="jira-issue-info">
+              <span class="jira-proj-meta"><strong>{{ ji.key }}</strong>: {{ ji.summary }}</span>
+              <div class="jira-issue-details">
+                <span class="badge">{{ ji.status }}</span>
+                <span class="badge badge-priority">{{ ji.priority }}</span>
+              </div>
+            </div>
+            <button type="button" class="btn-jira-add" @click="addJiraIssueToNotes(ji)">
               Do notatki
             </button>
           </li>
         </ul>
         <p
-          v-if="!jiraProjectsLoading && jiraBoardId != null && jiraProjects.length === 0"
+          v-if="!jiraIssuesLoading && jiraBoardId != null && jiraIssues.length === 0"
           class="muted"
         >
-          Brak projektów na tym boardzie.
+          Brak tasków na tym boardzie.
         </p>
       </template>
     </section>
@@ -273,6 +310,22 @@ watch(projectId, loadAll);
       </div>
       <div v-if="selectedId" class="col editor">
         <h2>Edycja</h2>
+
+        <div v-if="trackedIssues.length > 0" class="tracking-panel">
+          <header class="tracking-head">
+            <h3>Live Status Jiry</h3>
+            <span v-if="trackingLoading" class="mini-spinner">…</span>
+          </header>
+          <div class="tracking-grid">
+            <div v-for="ti in trackedIssues" :key="ti.key" class="track-item">
+              <span class="track-key">{{ ti.key }}</span>
+              <span class="track-status" :class="ti.status.toLowerCase().replace(/\s+/g, '-')">{{
+                ti.status
+              }}</span>
+            </div>
+          </div>
+        </div>
+
         <label>
           Tytuł
           <input v-model="editTitle" type="text" />
@@ -387,11 +440,28 @@ h2 {
 }
 .jira-proj-meta {
   font-size: 0.875rem;
+  flex: 1;
+}
+.jira-issue-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+.jira-issue-details {
+  display: flex;
+  gap: 0.4rem;
+}
+.badge-priority {
+  background: #fff0f0;
+  color: #a32d2d;
+  border: 1px solid #ffcccc;
 }
 .btn-jira-add {
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
   background: #2d6a4f;
+  align-self: center;
 }
 .err {
   color: #a32d2d;
@@ -467,5 +537,65 @@ button:disabled {
 }
 .btn-danger {
   background: #a32d2d;
+}
+
+.tracking-panel {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f0f4f8;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+}
+.tracking-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.tracking-head h3 {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #555;
+  letter-spacing: 0.05em;
+}
+.tracking-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  background: #fff;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.track-key {
+  font-weight: bold;
+  color: #185fa5;
+}
+.track-status {
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: #eee;
+  font-size: 0.7rem;
+}
+.track-status.to-do { background: #dfe1e6; color: #42526e; }
+.track-status.in-progress { background: #deebff; color: #0747a6; }
+.track-status.done { background: #e3fcef; color: #006644; }
+
+.mini-spinner {
+  font-size: 0.75rem;
+  color: #185fa5;
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
 }
 </style>
