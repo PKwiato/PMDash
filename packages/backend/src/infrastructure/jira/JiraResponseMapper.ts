@@ -10,6 +10,7 @@ export class JiraResponseMapper {
       assignee?: { displayName: string } | null;
       priority?: { name: string } | null;
       issuetype: { name: string };
+      description?: unknown;
       customfield_10014?: string | null;
       parent?: { key: string } | null;
     };
@@ -18,6 +19,7 @@ export class JiraResponseMapper {
       id: raw.id,
       key: raw.key,
       summary: raw.fields.summary,
+      description: typeof raw.fields.description === 'string' ? raw.fields.description : raw.fields.description ? JSON.stringify(raw.fields.description) : null,
       status: raw.fields.status.name,
       assignee: raw.fields.assignee?.displayName ?? null,
       priority: raw.fields.priority?.name ?? 'Medium',

@@ -57,8 +57,8 @@
           <!-- Description Section -->
           <div class="space-y-3">
             <h3 class="font-headline-md text-headline-md text-slate-900">Description</h3>
-            <div class="font-body-lg text-body-lg text-slate-700 leading-relaxed space-y-4">
-              Description not available in current API response.
+            <div class="font-body-lg text-body-lg text-slate-700 leading-relaxed space-y-4 whitespace-pre-wrap">
+              {{ issue.description || 'No description provided.' }}
             </div>
           </div>
         </div>
