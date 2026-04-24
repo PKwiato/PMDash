@@ -181,8 +181,8 @@ const recentIssues = computed(() => jiraStore.issues.slice(0, 5));
 const recentNotes = computed(() => notesStore.notes.slice(0, 4));
 
 onMounted(async () => {
-  // Use default board ID 1
-  jiraStore.fetchIssuesForBoard(1);
+  await jiraStore.fetchConfig();
+  jiraStore.fetchIssuesForBoard();
   notesStore.fetchAllNotes();
 });
 </script>

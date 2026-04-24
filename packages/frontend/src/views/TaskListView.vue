@@ -119,8 +119,8 @@ import { useJiraStore } from '../stores/jiraStore';
 const router = useRouter();
 const jiraStore = useJiraStore();
 
-onMounted(() => {
-  // Use default board ID for testing. Assuming 1 for now, but could be loaded from config/user pref
-  jiraStore.fetchIssuesForBoard(1);
+onMounted(async () => {
+  await jiraStore.fetchConfig();
+  jiraStore.fetchIssuesForBoard();
 });
 </script>

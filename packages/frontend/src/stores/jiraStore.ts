@@ -6,18 +6,31 @@ import type { JiraIssueDto } from '../types/api';
 const API_BASE = '/api/jira';
 
 export const useJiraStore = defineStore('jira', () => {
+  const defaultBoardId = ref<number | null>(null);
   const issues = ref<JiraIssueDto[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  async function fetchIssuesForBoard(boardId: number) {
+  async function fetchConfig() {
+    try {
+      const response = await axios.get<{ defaultBoardId: number }>(`${API_BASE}/config`);
+      defaultBoardId.value = response.data.defaultBoardId;
+    } catch (err) {
+      console.error('Error fetching Jira config:', err);
+    }
+  }
+
+  async function fetchIssuesForBoard(boardId?: number) {
+    const id = boardId || defaultBoardId.value;
+    if (!id) return;
+    
     loading.value = true;
     error.value = null;
     try {
-      const response = await axios.get<JiraIssueDto[]>(`${API_BASE}/boards/${boardId}/issues`);
+      const response = await axios.get<JiraIssueDto[]>(`${API_BASE}/boards/${id}/issues`);
       issues.value = response.data;
     } catch (err: any) {
-      error.value = err.message || 'Failed to fetch issues';
+      error.value = err.response?.data?.error || err.message || 'Failed to fetch issues';
       console.error('Error fetching Jira issues:', err);
     } finally {
       loading.value = false;
@@ -45,8 +58,10 @@ export const useJiraStore = defineStore('jira', () => {
 
   return {
     issues,
+    defaultBoardId,
     loading,
     error,
+    fetchConfig,
     fetchIssuesForBoard,
     fetchIssuesByKeys
   };

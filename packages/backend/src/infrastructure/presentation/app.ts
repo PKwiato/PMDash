@@ -50,7 +50,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   );
   app.use('/api/tasks', tasksRouter(taskRepo, projectRepo, epicRepo, jiraAdapter));
   app.use('/api/tags', tagsRouter(tagRepo, vaultWriter));
-  app.use('/api/jira', jiraRouter(jiraAdapter, taskRepo, projectRepo, epicRepo));
+  app.use('/api/jira', jiraRouter(jiraAdapter, taskRepo, projectRepo, epicRepo, config.jira.defaultBoardId));
   app.use('/api/vault', vaultRouter(vaultWriter, tagRepo));
   app.use('/api/archive', archiveRouter(projectRepo));
   app.use(errorHandler);

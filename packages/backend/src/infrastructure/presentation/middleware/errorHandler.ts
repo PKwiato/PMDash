@@ -20,7 +20,10 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
   if (err instanceof JiraApiError || err.name === 'JiraApiError') {
-    res.status(502).json({ error: err.message });
+    const jiraStatus = (err as any).status;
+    // Map certain statuses directly, others to 502
+    const responseStatus = [401, 403, 404].includes(jiraStatus) ? jiraStatus : 502;
+    res.status(responseStatus).json({ error: err.message });
     return;
   }
   console.error('[ERROR]', err);

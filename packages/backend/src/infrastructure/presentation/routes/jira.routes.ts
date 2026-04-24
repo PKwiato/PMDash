@@ -9,8 +9,14 @@ export function jiraRouter(
   _taskRepo: ITaskRepository,
   _projectRepo: IProjectRepository,
   _epicRepo: IEpicRepository,
+  defaultBoardId?: number
 ) {
   const r = Router();
+
+  r.get('/config', async (_req, res) => {
+    res.json({ defaultBoardId });
+  });
+
   r.get('/boards', async (_req, res, next) => {
     try {
       if (!jiraAdapter) {
