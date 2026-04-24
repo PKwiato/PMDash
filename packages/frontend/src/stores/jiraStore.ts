@@ -20,14 +20,16 @@ export const useJiraStore = defineStore('jira', () => {
     }
   }
 
-  async function fetchIssuesForBoard(boardId?: number) {
+  async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
     
     loading.value = true;
     error.value = null;
     try {
-      const response = await axios.get<JiraIssueDto[]>(`${API_BASE}/boards/${id}/issues`);
+      const response = await axios.get<JiraIssueDto[]>(`${API_BASE}/boards/${id}/issues`, {
+        params: { activeSprintOnly }
+      });
       issues.value = response.data;
     } catch (err: any) {
       error.value = err.response?.data?.error || err.message || 'Failed to fetch issues';

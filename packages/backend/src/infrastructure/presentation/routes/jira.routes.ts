@@ -59,6 +59,17 @@ export function jiraRouter(
         res.status(400).json({ error: 'Invalid boardId' });
         return;
       }
+      const activeSprintOnly = req.query.activeSprintOnly === 'true';
+      if (activeSprintOnly) {
+        const sprints = await jiraAdapter.listBoardSprints(boardId);
+        const activeSprint = sprints.find(s => s.state === 'active');
+        if (activeSprint) {
+          const issues = await jiraAdapter.listBoardIssues(boardId, activeSprint.id);
+          res.json(issues);
+          return;
+        }
+      }
+
       const issues = await jiraAdapter.listBoardIssues(boardId);
       res.json(issues);
     } catch (e) {
