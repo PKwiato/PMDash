@@ -33,7 +33,7 @@ export function projectNotesRouter(projectRepo: IProjectRepository, noteRepo: IN
         title,
         body: typeof body === 'string' ? body : undefined,
       });
-      res.status(201).json(noteToListJson(note));
+      res.status(201).json({ ...noteToListJson(note), body: typeof body === 'string' ? body : '' });
     } catch (e) {
       next(e);
     }

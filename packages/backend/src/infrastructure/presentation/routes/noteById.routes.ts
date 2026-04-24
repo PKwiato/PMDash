@@ -40,7 +40,7 @@ export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteR
         return;
       }
       const note = await updateNote.execute({ id: req.params.id, title, body });
-      res.json(noteToListJson(note));
+      res.json({ ...noteToListJson(note), body: typeof body === 'string' ? body : '' });
     } catch (e) {
       next(e);
     }

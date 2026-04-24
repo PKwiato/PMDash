@@ -24,10 +24,22 @@ export const useProjectsStore = defineStore('projects', () => {
     }
   }
 
+  async function createProject(title: string, description?: string) {
+    try {
+      const response = await axios.post<ProjectDto>(API_BASE, { title, description });
+      projects.value.push(response.data);
+      return response.data;
+    } catch (err) {
+      console.error('Error creating project:', err);
+      throw err;
+    }
+  }
+
   return {
     projects,
     loading,
     error,
-    fetchProjects
+    fetchProjects,
+    createProject
   };
 });

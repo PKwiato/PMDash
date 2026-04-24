@@ -45,7 +45,7 @@ export class MarkdownNoteRepository implements INoteRepository {
 
   async findAll(): Promise<Note[]> {
     const paths = await fg('projects/*/notes/*.md', {
-      cwd: this.dataDir,
+      cwd: this.dataDir.replace(/\\/g, '/'),
       onlyFiles: true,
       absolute: true,
     });
@@ -79,7 +79,7 @@ export class MarkdownNoteRepository implements INoteRepository {
 
   async findFilePathById(id: string): Promise<string | null> {
     const paths = await fg('projects/*/notes/*.md', {
-      cwd: this.dataDir,
+      cwd: this.dataDir.replace(/\\/g, '/'),
       onlyFiles: true,
       absolute: true,
     });

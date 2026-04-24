@@ -137,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
@@ -195,11 +195,16 @@ async function saveNote() {
       // Create new note
       // Find matching project by prefix
       const prefix = issueId.value.split('-')[0];
-      const project = projectsStore.projects.find(p => p.jiraProjectKey === prefix) || projectsStore.projects[0];
+      let project = projectsStore.projects.find(p => p.jiraProjectKey === prefix);
       
+      if (!project && projectsStore.projects.length > 0) {
+        project = projectsStore.projects[0];
+      }
+
       if (!project) {
-        alert('No project found to save the note to.');
-        return;
+        // Auto-create a project if no local projects exist at all
+        console.log(`Auto-creating project for Jira prefix ${prefix}...`);
+        project = await projectsStore.createProject(`Jira Project ${prefix}`, `Auto-generated project for ${prefix} tasks`);
       }
       
       await notesStore.createNote(project.id, `Note for ${issueId.value}`, noteBody.value);
@@ -233,16 +238,17 @@ onMounted(async () => {
   // Find note for this task
   await notesStore.fetchNoteByJiraKey(issueId.value);
   
+  loading.value = false;
+  await nextTick();
+
   if (notesStore.currentNote) {
-    noteBody.value = notesStore.currentNote.body;
+    noteBody.value = notesStore.currentNote.body || '';
     if (editorRef.value) {
       editorRef.value.innerHTML = noteBody.value;
     }
   } else if (editorRef.value) {
     editorRef.value.innerHTML = '<p class="text-slate-400 italic">No notes found for this task yet. Start typing to create one...</p>';
   }
-  
-  loading.value = false;
 });
 
 // Watch for note changes if we switch tasks (though router should handle it via remount)
