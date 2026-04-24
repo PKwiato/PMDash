@@ -4,6 +4,7 @@ import type { WikiLink } from '../value-objects/WikiLink';
 
 export interface INoteRepository {
   findByProjectId(projectId: string): Promise<Note[]>;
+  findAll(): Promise<Note[]>;
   findById(id: string): Promise<Note | null>;
   /** Absolutna ścieżka pliku lub null */
   findFilePathById(id: string): Promise<string | null>;

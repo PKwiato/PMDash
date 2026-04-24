@@ -2,6 +2,7 @@ import vue from '@vitejs/plugin-vue';
 import path from 'path';
 import { defineConfig } from 'vite';
 
+// Trigger restart
 export default defineConfig({
   plugins: [vue()],
   resolve: {
