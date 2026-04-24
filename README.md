@@ -20,6 +20,13 @@ Lokalny dashboard do zarządzania projektami dla **jednego użytkownika** (bez l
 
 Pełna specyfikacja funkcjonalna i struktur katalogów: [`.cursor/PM_SYSTEM_SPEC.md`](.cursor/PM_SYSTEM_SPEC.md).
 
+## Funkcje (MVP)
+
+- **Projekty wyłącznie lokalne** — `POST /api/projects` tworzy projekt w Markdownzie bez Jiry. W odpowiedziach API pola `jiraLinked` i `source` (`local` albo `jira`); na liście w UI widać etykietę „Tylko lokalnie”.
+- **Notatki przy projekcie** — pliki `data/projects/{slug}/notes/{note-slug}.md` (`type: note`). API: `GET/POST /api/projects/:projectId/notes`, `GET/PUT/DELETE /api/notes/:id`. W przeglądarce: widok projektu (`/projects/:id`) — lista, dodawanie, edycja Markdown, usuwanie.
+
+Plan wdrożenia (historia): [`.cursor/PLAN_NOTES_AND_LOCAL_PROJECTS.md`](.cursor/PLAN_NOTES_AND_LOCAL_PROJECTS.md).
+
 ## Wymagania
 
 - **Node.js** 20+ (zalecane 22)

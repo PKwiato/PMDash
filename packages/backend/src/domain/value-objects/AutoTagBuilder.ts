@@ -1,4 +1,5 @@
 import type { Epic } from '../entities/Epic';
+import type { Note } from '../entities/Note';
 import type { Project } from '../entities/Project';
 import type { Task } from '../entities/Task';
 import { Tag } from './Tag';
@@ -23,6 +24,10 @@ export class AutoTagBuilder {
       ...(epic.jiraEpicKey ? [Tag.of('jira/linked')] : []),
       ...epic.userTags,
     ];
+  }
+
+  static forNote(note: Note, projectSlug: string): Tag[] {
+    return [Tag.of(`project/${projectSlug}`), Tag.of('type/note'), ...note.userTags];
   }
 
   static forTask(task: Task, projectSlug: string, epicSlug: string | null): Tag[] {

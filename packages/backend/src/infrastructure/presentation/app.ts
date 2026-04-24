@@ -3,6 +3,7 @@ import { JiraApiAdapter } from '../jira/JiraApiAdapter';
 import { JiraApiClient } from '../jira/JiraApiClient';
 import { FrontmatterParser } from '../persistence/FrontmatterParser';
 import { MarkdownEpicRepository } from '../persistence/MarkdownEpicRepository';
+import { MarkdownNoteRepository } from '../persistence/MarkdownNoteRepository';
 import { MarkdownProjectRepository } from '../persistence/MarkdownProjectRepository';
 import { MarkdownTagRepository } from '../persistence/MarkdownTagRepository';
 import { MarkdownTaskRepository } from '../persistence/MarkdownTaskRepository';
@@ -13,6 +14,8 @@ import { errorHandler } from './middleware/errorHandler';
 import { archiveRouter } from './routes/archive.routes';
 import { epicsRouter } from './routes/epics.routes';
 import { jiraRouter } from './routes/jira.routes';
+import { noteByIdRouter } from './routes/noteById.routes';
+import { projectNotesRouter } from './routes/projectNotes.routes';
 import { projectsRouter } from './routes/projects.routes';
 import { tagsRouter } from './routes/tags.routes';
 import { tasksRouter } from './routes/tasks.routes';
@@ -26,6 +29,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
 
   const parser = new FrontmatterParser();
   const projectRepo = new MarkdownProjectRepository(dataDir, parser);
+  const noteRepo = new MarkdownNoteRepository(dataDir, parser, projectRepo);
   const epicRepo = new MarkdownEpicRepository();
   const taskRepo = new MarkdownTaskRepository();
   const tagRepo = new MarkdownTagRepository();
@@ -37,7 +41,9 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
     jiraAdapter = new JiraApiAdapter(jiraClient);
   }
 
+  app.use('/api/notes', noteByIdRouter(projectRepo, noteRepo));
   app.use('/api/projects', projectsRouter(projectRepo, epicRepo, taskRepo));
+  app.use('/api/projects/:projectId/notes', projectNotesRouter(projectRepo, noteRepo));
   app.use(
     '/api/epics',
     epicsRouter(epicRepo, taskRepo, projectRepo, jiraAdapter, config.jira.defaultBoardId),

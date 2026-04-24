@@ -1,24 +1,10 @@
-import type { Project } from '../../../domain/entities/Project';
+import { CreateProject } from '../../../application/use-cases/projects/CreateProject';
+import { ProjectNotFoundError } from '../../../domain/errors/ProjectNotFoundError';
 import type { IEpicRepository } from '../../../domain/ports/IEpicRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
 import type { ITaskRepository } from '../../../domain/ports/ITaskRepository';
+import { projectToJson } from '../serialization/projectDto';
 import { Router } from 'express';
-
-function projectToJson(p: Project) {
-  return {
-    id: p.id,
-    title: p.title,
-    slug: p.slug,
-    status: p.status,
-    description: p.description,
-    jiraBoardId: p.jiraBoardId,
-    jiraBoardName: p.jiraBoardName,
-    jiraProjectKey: p.jiraProjectKey,
-    tags: p.userTags.map(t => t.slug),
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-  };
-}
 
 export function projectsRouter(
   projectRepo: IProjectRepository,
@@ -26,6 +12,8 @@ export function projectsRouter(
   _taskRepo: ITaskRepository,
 ) {
   const r = Router();
+  const createProject = new CreateProject(projectRepo);
+
   r.get('/', async (_req, res, next) => {
     try {
       const list = await projectRepo.findAll();
@@ -34,5 +22,34 @@ export function projectsRouter(
       next(e);
     }
   });
+
+  r.post('/', async (req, res, next) => {
+    try {
+      const body = req.body as { title?: string; description?: string; tags?: string[] };
+      if (!body?.title || typeof body.title !== 'string') {
+        res.status(400).json({ error: 'title is required' });
+        return;
+      }
+      const project = await createProject.execute({
+        title: body.title,
+        description: body.description,
+        tags: body.tags,
+      });
+      res.status(201).json(projectToJson(project));
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  r.get('/:id', async (req, res, next) => {
+    try {
+      const p = await projectRepo.findById(req.params.id);
+      if (!p) throw new ProjectNotFoundError(req.params.id);
+      res.json(projectToJson(p));
+    } catch (e) {
+      next(e);
+    }
+  });
+
   return r;
 }

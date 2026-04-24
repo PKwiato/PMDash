@@ -313,8 +313,10 @@ data/
 │       ├── README.md                          ← metadane projektu
 │       ├── epics/
 │       │   └── {epic-slug}.md
-│       └── tasks/
-│           └── {task-slug}.md
+│       ├── tasks/
+│       │   └── {task-slug}.md
+│       └── notes/
+│           └── {note-slug}.md              ← notatki projektowe (type: note)
 ├── archive/
 │   └── {project-slug}/                        ← archiwizacja = przeniesienie folderu
 └── config.json                                ← GITIGNORE! Jira PAT
@@ -442,16 +444,43 @@ Treść taska...
 - [[projects/{project-slug}/epics/{epic-slug}|Epic: Nazwa epica]]
 ```
 
-### 4.4 Dozwolone wartości pól
+### 4.4 Notatka — `projects/{slug}/notes/{note-slug}.md`
+
+Dowolna treść Markdown w ciele; API zapisuje frontmatter + body (jak taski).
+
+```markdown
+---
+id: "uuid-v4"
+type: note
+title: "Tytuł notatki"
+slug: "tytul-notatki"
+project_id: "uuid-projektu"
+created_at: "2025-04-24T10:00:00Z"
+updated_at: "2025-04-24T12:00:00Z"
+tags:
+  - project/{project-slug}
+  - type/note
+aliases:
+  - "Tytuł notatki"
+cssclasses:
+  - pm-note
+---
+
+## Treść
+
+…markdown użytkownika…
+```
+
+### 4.5 Dozwolone wartości pól
 ```
 status (Project):  active | archived
 status (Epic):     todo | in-progress | done | cancelled
 status (Task):     todo | in-progress | review | blocked | done
 priority (Task):   low | medium | high | critical
-type:              project | epic | task | index
+type:              project | epic | task | note | index
 ```
 
-### 4.5 `data/config.json` (GITIGNORE!)
+### 4.6 `data/config.json` (GITIGNORE!)
 ```json
 {
   "jira": {
@@ -1633,14 +1662,23 @@ export class ConfigStore {
 ### 8.1 Kompletna lista endpointów
 ```
 # Projekty
-GET    /api/projects                      → lista aktywnych projektów
-POST   /api/projects                      → utwórz projekt { title, description?, tags? }
-GET    /api/projects/:id                  → szczegóły
+GET    /api/projects                      → lista; każdy element zawiera m.in. `jiraLinked` (bool) i `source` (`local` | `jira`) — projekt wyłącznie lokalny gdy brak powiązania z Jirą
+POST   /api/projects                      → utwórz projekt wyłącznie w vault (bez Jiry): { title, description?, tags? }
+GET    /api/projects/:id                  → szczegóły (+ `jiraLinked`, `source`)
 PUT    /api/projects/:id                  → aktualizuj { title?, description?, tags? }
 POST   /api/projects/:id/archive          → archiwizuj
 GET    /api/projects/:id/progress         → postęp całego projektu
 GET    /api/projects/:id/epics            → epics projektu
 GET    /api/projects/:id/tasks            → wszystkie taski projektu
+
+# Notatki (projekt)
+GET    /api/projects/:projectId/notes     → lista notatek (id, title, slug, projectId, createdAt, updatedAt)
+POST   /api/projects/:projectId/notes     → utwórz { title, body? }
+
+# Notatka (po id)
+GET    /api/notes/:id                     → szczegóły + pole `body` (markdown)
+PUT    /api/notes/:id                     → { title?, body } — nadpisuje frontmatter i body
+DELETE /api/notes/:id                     → usuwa plik .md
 
 # Archiwum
 GET    /api/archive                       → lista zarchiwizowanych projektów

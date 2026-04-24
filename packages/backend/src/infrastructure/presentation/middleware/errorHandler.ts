@@ -5,13 +5,18 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
   if (
     err.name === 'ProjectNotFoundError' ||
     err.name === 'EpicNotFoundError' ||
-    err.name === 'TaskNotFoundError'
+    err.name === 'TaskNotFoundError' ||
+    err.name === 'NoteNotFoundError'
   ) {
     res.status(404).json({ error: err.message });
     return;
   }
   if (err.name === 'InvalidTagError') {
     res.status(400).json({ error: err.message });
+    return;
+  }
+  if (err.name === 'DuplicateProjectSlugError') {
+    res.status(409).json({ error: err.message });
     return;
   }
   if (err instanceof JiraApiError || err.name === 'JiraApiError') {

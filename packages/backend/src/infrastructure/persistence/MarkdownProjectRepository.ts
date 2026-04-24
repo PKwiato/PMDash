@@ -84,6 +84,7 @@ export class MarkdownProjectRepository implements IProjectRepository {
     await fs.ensureDir(dir);
     await fs.ensureDir(path.join(dir, 'epics'));
     await fs.ensureDir(path.join(dir, 'tasks'));
+    await fs.ensureDir(path.join(dir, 'notes'));
 
     const filePath = this.projectFile(project.slug);
     const frontmatter = this.parser.buildFrontmatter(
