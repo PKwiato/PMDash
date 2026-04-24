@@ -20,8 +20,9 @@ export class JiraApiClient {
   private readonly agileBaseUrl: string;
 
   constructor(config: JiraConfig) {
-    this.baseUrl = `${config.baseUrl.replace(/\/$/, '')}/rest/api/3`;
-    this.agileBaseUrl = `${config.baseUrl.replace(/\/$/, '')}/rest/agile/1.0`;
+    const protocolBase = config.baseUrl.startsWith('http') ? config.baseUrl : `https://${config.baseUrl}`;
+    this.baseUrl = `${protocolBase.replace(/\/$/, '')}/rest/api/3`;
+    this.agileBaseUrl = `${protocolBase.replace(/\/$/, '')}/rest/agile/1.0`;
     const credentials = Buffer.from(`${config.email}:${config.token}`).toString('base64');
     this.headers = {
       Authorization: `Basic ${credentials}`,
