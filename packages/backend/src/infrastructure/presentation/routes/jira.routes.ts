@@ -23,5 +23,24 @@ export function jiraRouter(
       next(e);
     }
   });
+
+  r.get('/boards/:boardId/projects', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const boardId = Number((req.params as { boardId: string }).boardId);
+      if (!Number.isFinite(boardId) || boardId < 1) {
+        res.status(400).json({ error: 'Invalid boardId' });
+        return;
+      }
+      const projects = await jiraAdapter.listBoardProjects(boardId);
+      res.json(projects);
+    } catch (e) {
+      next(e);
+    }
+  });
+
   return r;
 }

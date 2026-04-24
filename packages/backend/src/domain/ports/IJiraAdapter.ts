@@ -29,8 +29,16 @@ export interface JiraBoardProgress {
   byStatus: Record<string, number>;
 }
 
+/** Projekty Jiry powiązane z boardem (Agile GET /board/{id}/project). */
+export interface JiraBoardProject {
+  id: string;
+  key: string;
+  name: string;
+}
+
 export interface IJiraAdapter {
   listBoards(): Promise<JiraBoard[]>;
+  listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
   listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
   getIssue(issueKey: string): Promise<JiraIssue>;

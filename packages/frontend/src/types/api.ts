@@ -26,3 +26,16 @@ export interface NoteListItem {
 export interface NoteDetail extends NoteListItem {
   body: string;
 }
+
+export interface JiraBoardListItem {
+  id: number;
+  name: string;
+  projectKey: string;
+  type: string;
+}
+
+export interface JiraBoardProjectDto {
+  id: string;
+  key: string;
+  name: string;
+}

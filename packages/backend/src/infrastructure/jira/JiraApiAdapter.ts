@@ -2,6 +2,7 @@ import type {
   IJiraAdapter,
   JiraBoard,
   JiraBoardProgress,
+  JiraBoardProject,
   JiraIssue,
   JiraSprint,
 } from '../../domain/ports/IJiraAdapter';
@@ -23,6 +24,24 @@ export class JiraApiAdapter implements IJiraAdapter {
       projectKey: (b.location as { projectKey?: string } | undefined)?.projectKey ?? '',
       type: b.type as string,
     }));
+  }
+
+  async listBoardProjects(boardId: number): Promise<JiraBoardProject[]> {
+    const out: JiraBoardProject[] = [];
+    let startAt = 0;
+    const maxResults = 50;
+    for (let page = 0; page < 20; page++) {
+      const data = await this.client.get<{
+        values: Array<{ id: string | number; key: string; name: string }>;
+        isLast?: boolean;
+      }>(`/board/${boardId}/project`, { startAt: String(startAt), maxResults: String(maxResults) }, true);
+      for (const p of data.values) {
+        out.push({ id: String(p.id), key: p.key, name: p.name });
+      }
+      if (data.isLast === true || data.values.length < maxResults) break;
+      startAt += maxResults;
+    }
+    return out;
   }
 
   async listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]> {

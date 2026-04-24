@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import type { NoteDetail, NoteListItem, ProjectDto } from '../types/api';
+import type {
+  JiraBoardListItem,
+  JiraBoardProjectDto,
+  NoteDetail,
+  NoteListItem,
+  ProjectDto,
+} from '../types/api';
 
 const route = useRoute();
 const projectId = computed(() => String(route.params.id));
@@ -14,6 +20,82 @@ const editTitle = ref('');
 const editBody = ref('');
 const error = ref<string | null>(null);
 const saving = ref(false);
+
+const jiraConfigured = ref(false);
+const jiraBoards = ref<JiraBoardListItem[]>([]);
+const jiraBoardId = ref<number | null>(null);
+const jiraProjects = ref<JiraBoardProjectDto[]>([]);
+const jiraProjectsLoading = ref(false);
+const jiraError = ref<string | null>(null);
+
+function markdownForJiraProject(p: JiraBoardProjectDto): string {
+  return `\n## Projekt Jira: ${p.name}\n\n- **Klucz:** \`${p.key}\`\n- **ID:** ${p.id}\n\n`;
+}
+
+async function loadJiraBoards() {
+  jiraError.value = null;
+  try {
+    const { data } = await axios.get<JiraBoardListItem[]>('/api/jira/boards');
+    jiraBoards.value = data;
+    jiraConfigured.value = true;
+    const preferred = project.value?.jiraBoardId ?? null;
+    if (preferred != null && data.some(b => b.id === preferred)) {
+      jiraBoardId.value = preferred;
+    } else if (data.length > 0) {
+      jiraBoardId.value = data[0]!.id;
+    } else {
+      jiraBoardId.value = null;
+    }
+    await loadJiraProjects();
+  } catch (e) {
+    jiraProjects.value = [];
+    if (isAxiosError(e) && e.response?.status === 503) {
+      jiraConfigured.value = false;
+    } else {
+      jiraError.value = e instanceof Error ? e.message : String(e);
+    }
+  }
+}
+
+async function loadJiraProjects() {
+  if (jiraBoardId.value == null) {
+    jiraProjects.value = [];
+    return;
+  }
+  jiraProjectsLoading.value = true;
+  jiraError.value = null;
+  try {
+    const { data } = await axios.get<JiraBoardProjectDto[]>(
+      `/api/jira/boards/${jiraBoardId.value}/projects`,
+    );
+    jiraProjects.value = data;
+  } catch (e) {
+    jiraProjects.value = [];
+    jiraError.value = e instanceof Error ? e.message : String(e);
+  } finally {
+    jiraProjectsLoading.value = false;
+  }
+}
+
+async function addJiraProjectToNotes(p: JiraBoardProjectDto) {
+  jiraError.value = null;
+  const block = markdownForJiraProject(p);
+  try {
+    if (selectedId.value) {
+      editBody.value += block;
+      await saveNote();
+    } else {
+      const { data } = await axios.post<NoteListItem>(`/api/projects/${projectId.value}/notes`, {
+        title: `Jira — ${p.key}: ${p.name}`,
+        body: `## Treść\n\n${block}`,
+      });
+      await loadNotes();
+      await selectNote(data.id);
+    }
+  } catch (e) {
+    jiraError.value = e instanceof Error ? e.message : String(e);
+  }
+}
 
 async function loadProject() {
   const { data } = await axios.get<ProjectDto>(`/api/projects/${projectId.value}`);
@@ -33,6 +115,7 @@ async function loadAll() {
   try {
     await loadProject();
     await loadNotes();
+    await loadJiraBoards();
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
     project.value = null;
@@ -120,6 +203,38 @@ watch(projectId, loadAll);
 
     <p v-if="error" class="err">{{ error }}</p>
 
+    <section v-if="project && jiraConfigured" class="jira-panel">
+      <h2>Projekty z boarda Jiry</h2>
+      <p class="jira-hint">
+        Wybierz board, potem projekt — zostanie dopisany do otwartej notatki albo utworzona zostanie nowa.
+      </p>
+      <p v-if="jiraBoards.length === 0" class="muted">Brak boardów widocznych dla konta Jiry.</p>
+      <label v-else class="jira-board-label">
+        Board
+        <select v-model.number="jiraBoardId" class="jira-select" @change="loadJiraProjects">
+          <option v-for="b in jiraBoards" :key="b.id" :value="b.id">
+            {{ b.name }} ({{ b.id }})
+          </option>
+        </select>
+      </label>
+      <p v-if="jiraError" class="err">{{ jiraError }}</p>
+      <p v-if="jiraProjectsLoading" class="muted">Ładowanie projektów…</p>
+      <ul v-else-if="jiraBoardId != null" class="jira-projects">
+        <li v-for="jp in jiraProjects" :key="`${jp.id}-${jp.key}`">
+          <span class="jira-proj-meta">{{ jp.key }} — {{ jp.name }}</span>
+          <button type="button" class="btn-jira-add" @click="addJiraProjectToNotes(jp)">
+            Do notatki
+          </button>
+        </li>
+      </ul>
+      <p
+        v-if="!jiraProjectsLoading && jiraBoardId != null && jiraProjects.length === 0"
+        class="muted"
+      >
+        Brak projektów na tym boardzie.
+      </p>
+    </section>
+
     <section v-if="project" class="layout">
       <div class="col">
         <h2>Notatki</h2>
@@ -193,6 +308,60 @@ h2 {
 }
 .desc {
   color: #444;
+}
+.jira-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+}
+.jira-panel h2 {
+  margin-top: 0;
+}
+.jira-hint {
+  font-size: 0.875rem;
+  color: #555;
+  margin: 0.25rem 0 0.75rem;
+}
+.jira-board-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  max-width: 28rem;
+}
+.jira-select {
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+.jira-projects {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.jira-projects li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+.jira-proj-meta {
+  font-size: 0.875rem;
+}
+.btn-jira-add {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  background: #2d6a4f;
 }
 .err {
   color: #a32d2d;
