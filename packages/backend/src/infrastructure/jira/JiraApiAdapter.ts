@@ -85,7 +85,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     const jql = `project = "${projectKey}" ORDER BY status`;
     const data = await this.client.get<{
       issues: Array<{ fields: { status: { name: string } } }>;
-    }>('/search', {
+    }>('/search/jql', {
       jql,
       fields: 'status',
       maxResults: '500',
@@ -102,7 +102,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     if (keys.length === 0) return [];
     const jql = `key in ("${keys.join('","')}")`;
     const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
-      '/search',
+      '/search/jql',
       {
         jql,
         fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014',

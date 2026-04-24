@@ -207,9 +207,10 @@ async function saveNote() {
         project = await projectsStore.createProject(`Jira Project ${prefix}`, `Auto-generated project for ${prefix} tasks`);
       }
       
-      const existingCount = notesStore.notes.filter(n => n.title.startsWith(`Note for ${issueId.value}`)).length;
+      const baseTitle = `${issueId.value}: ${issue.value.summary}`;
+      const existingCount = notesStore.notes.filter(n => n.title.startsWith(baseTitle)).length;
       const suffix = existingCount > 0 ? ` (${existingCount + 1})` : '';
-      await notesStore.createNote(project.id, `Note for ${issueId.value}${suffix}`, noteBody.value);
+      await notesStore.createNote(project.id, `${baseTitle}${suffix}`, noteBody.value);
     }
     isDirty.value = false;
   } catch (err) {
