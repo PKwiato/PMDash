@@ -22,6 +22,8 @@ const error = ref<string | null>(null);
 const saving = ref(false);
 
 const jiraConfigured = ref(false);
+/** false do momentu pierwszego zakończenia próby pobrania boardów (unikamy migania komunikatu). */
+const jiraConfigChecked = ref(false);
 const jiraBoards = ref<JiraBoardListItem[]>([]);
 const jiraBoardId = ref<number | null>(null);
 const jiraProjects = ref<JiraBoardProjectDto[]>([]);
@@ -51,9 +53,13 @@ async function loadJiraBoards() {
     jiraProjects.value = [];
     if (isAxiosError(e) && e.response?.status === 503) {
       jiraConfigured.value = false;
+      jiraBoards.value = [];
+      jiraBoardId.value = null;
     } else {
       jiraError.value = e instanceof Error ? e.message : String(e);
     }
+  } finally {
+    jiraConfigChecked.value = true;
   }
 }
 
@@ -112,6 +118,7 @@ async function loadAll() {
   selectedId.value = null;
   editTitle.value = '';
   editBody.value = '';
+  jiraConfigChecked.value = false;
   try {
     await loadProject();
     await loadNotes();
@@ -203,36 +210,47 @@ watch(projectId, loadAll);
 
     <p v-if="error" class="err">{{ error }}</p>
 
-    <section v-if="project && jiraConfigured" class="jira-panel">
+    <section v-if="project" class="jira-panel">
       <h2>Projekty z boarda Jiry</h2>
-      <p class="jira-hint">
-        Wybierz board, potem projekt — zostanie dopisany do otwartej notatki albo utworzona zostanie nowa.
-      </p>
-      <p v-if="jiraBoards.length === 0" class="muted">Brak boardów widocznych dla konta Jiry.</p>
-      <label v-else class="jira-board-label">
-        Board
-        <select v-model.number="jiraBoardId" class="jira-select" @change="loadJiraProjects">
-          <option v-for="b in jiraBoards" :key="b.id" :value="b.id">
-            {{ b.name }} ({{ b.id }})
-          </option>
-        </select>
-      </label>
-      <p v-if="jiraError" class="err">{{ jiraError }}</p>
-      <p v-if="jiraProjectsLoading" class="muted">Ładowanie projektów…</p>
-      <ul v-else-if="jiraBoardId != null" class="jira-projects">
-        <li v-for="jp in jiraProjects" :key="`${jp.id}-${jp.key}`">
-          <span class="jira-proj-meta">{{ jp.key }} — {{ jp.name }}</span>
-          <button type="button" class="btn-jira-add" @click="addJiraProjectToNotes(jp)">
-            Do notatki
-          </button>
-        </li>
-      </ul>
-      <p
-        v-if="!jiraProjectsLoading && jiraBoardId != null && jiraProjects.length === 0"
-        class="muted"
-      >
-        Brak projektów na tym boardzie.
-      </p>
+      <p v-if="!jiraConfigChecked" class="muted">Sprawdzanie konfiguracji Jiry…</p>
+      <template v-else-if="!jiraConfigured">
+        <p class="jira-unconfigured">
+          Jira nie jest skonfigurowana. Uzupełnij w katalogu danych vaultu plik
+          <code>config.json</code> pola <code>jira.baseUrl</code>, <code>jira.email</code> i
+          <code>jira.token</code> (token API), potem uruchom ponownie backend.
+        </p>
+      </template>
+      <template v-else>
+        <p class="jira-hint">
+          Wybierz board, potem projekt — zostanie dopisany do otwartej notatki albo utworzona zostanie
+          nowa.
+        </p>
+        <p v-if="jiraBoards.length === 0" class="muted">Brak boardów widocznych dla konta Jiry.</p>
+        <label v-else class="jira-board-label">
+          Board
+          <select v-model.number="jiraBoardId" class="jira-select" @change="loadJiraProjects">
+            <option v-for="b in jiraBoards" :key="b.id" :value="b.id">
+              {{ b.name }} ({{ b.id }})
+            </option>
+          </select>
+        </label>
+        <p v-if="jiraError" class="err">{{ jiraError }}</p>
+        <p v-if="jiraProjectsLoading" class="muted">Ładowanie projektów…</p>
+        <ul v-else-if="jiraBoardId != null" class="jira-projects">
+          <li v-for="jp in jiraProjects" :key="`${jp.id}-${jp.key}`">
+            <span class="jira-proj-meta">{{ jp.key }} — {{ jp.name }}</span>
+            <button type="button" class="btn-jira-add" @click="addJiraProjectToNotes(jp)">
+              Do notatki
+            </button>
+          </li>
+        </ul>
+        <p
+          v-if="!jiraProjectsLoading && jiraBoardId != null && jiraProjects.length === 0"
+          class="muted"
+        >
+          Brak projektów na tym boardzie.
+        </p>
+      </template>
     </section>
 
     <section v-if="project" class="layout">
@@ -318,6 +336,18 @@ h2 {
 }
 .jira-panel h2 {
   margin-top: 0;
+}
+.jira-unconfigured {
+  font-size: 0.875rem;
+  color: #444;
+  margin: 0.25rem 0 0;
+  line-height: 1.5;
+}
+.jira-unconfigured code {
+  font-size: 0.8125rem;
+  padding: 0.1rem 0.35rem;
+  background: #eee;
+  border-radius: 3px;
 }
 .jira-hint {
   font-size: 0.875rem;
