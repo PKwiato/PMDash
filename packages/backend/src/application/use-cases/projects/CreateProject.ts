@@ -11,6 +11,7 @@ export interface CreateProjectDTO {
   title: string;
   description?: string;
   tags?: string[];
+  jiraProjectKey?: string;
 }
 
 export class CreateProject {
@@ -29,7 +30,7 @@ export class CreateProject {
       dto.description ?? '',
       null,
       null,
-      null,
+      dto.jiraProjectKey ?? null,
       (dto.tags ?? []).map(t => Tag.of(t)),
       new Date(),
       new Date(),

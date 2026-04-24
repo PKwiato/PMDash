@@ -214,6 +214,7 @@ function handleInput() {
 }
 
 async function saveNote() {
+  console.log("Saving note...", { id: activeNoteId.value, title: activeNoteTitle.value });
   if (!activeNoteTitle.value.trim() && !activeNoteId.value) {
     alert("Please enter a title");
     return;
@@ -222,19 +223,22 @@ async function saveNote() {
   saving.value = true;
   try {
     if (activeNoteId.value) {
-      // Update existing note
+      console.log("Updating existing note:", activeNoteId.value);
       await notesStore.updateNote(activeNoteId.value, activeNoteBody.value, activeNoteTitle.value);
     } else {
-      // Create new note
+      console.log("Creating new note. Current projects:", projectsStore.projects);
       let project = projectsStore.projects.find(p => p.title === 'Scratchpad' || p.slug === 'scratchpad');
       if (!project) {
+        console.log("Scratchpad project not found, creating one...");
         project = await projectsStore.createProject('Scratchpad', 'General notes and scratchpad');
       }
+      console.log("Saving to project:", project.id);
       await notesStore.createNote(project.id, activeNoteTitle.value, activeNoteBody.value);
     }
     await notesStore.fetchAllNotes();
     closeModal();
   } catch (err) {
+    console.error("Save note failed:", err);
     alert('Failed to save note');
   } finally {
     saving.value = false;
@@ -242,10 +246,13 @@ async function saveNote() {
 }
 
 async function confirmDeleteNote(note: any) {
+  console.log("Confirm delete for note:", note);
   if (confirm(`Are you sure you want to delete "${cleanTitle(note.title)}"?`)) {
     try {
+      console.log("Deleting note:", note.id);
       await notesStore.deleteNote(note.id);
     } catch (err) {
+      console.error("Delete note failed:", err);
       alert("Failed to delete note.");
     }
   }
@@ -284,8 +291,13 @@ const referencedJiraTasks = computed(() => {
 });
 
 onMounted(async () => {
-  await notesStore.fetchAllNotes();
-  // Discover Jira keys in fetched notes
-  await notesStore.discoverJiraTasksInNotes(notesStore.notes);
+  try {
+    await projectsStore.fetchProjects();
+    await notesStore.fetchAllNotes();
+    // Discover Jira keys in fetched notes
+    await notesStore.discoverJiraTasksInNotes(notesStore.notes);
+  } catch (err) {
+    console.error("Failed to initialize NotesOverview:", err);
+  }
 });
 </script>

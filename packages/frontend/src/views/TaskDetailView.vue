@@ -195,17 +195,28 @@ async function saveNote() {
       // Create new note
       // Find matching project by prefix
       const prefix = issueId.value.split('-')[0];
-      let project = projectsStore.projects.find(p => p.jiraProjectKey === prefix);
+      const expectedSlug = `jira-project-${prefix.toLowerCase()}`;
+      let project = projectsStore.projects.find(p => 
+        p.jiraProjectKey === prefix || p.slug === expectedSlug
+      );
       
-      if (!project && projectsStore.projects.length > 0) {
-        project = projectsStore.projects[0];
-      }
-
       if (!project) {
         // Auto-create a project if no local projects exist at all
         console.log(`Auto-creating project for Jira prefix ${prefix}...`);
-        project = await projectsStore.createProject(`Jira Project ${prefix}`, `Auto-generated project for ${prefix} tasks`);
+        try {
+          project = await projectsStore.createProject(`Jira Project ${prefix}`, `Auto-generated project for ${prefix} tasks`, prefix);
+        } catch (err: any) {
+          if (err.response?.status === 409) {
+            console.log("Project already exists on backend, refetching...");
+            await projectsStore.fetchProjects();
+            project = projectsStore.projects.find(p => p.jiraProjectKey === prefix || p.slug === expectedSlug);
+          } else {
+            throw err;
+          }
+        }
       }
+      
+      if (!project) throw new Error("Failed to resolve project for note");
       
       const baseTitle = `${issueId.value}: ${issue.value.summary}`;
       const existingCount = notesStore.notes.filter(n => n.title.startsWith(baseTitle)).length;

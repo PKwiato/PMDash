@@ -25,7 +25,7 @@ export function projectsRouter(
 
   r.post('/', async (req, res, next) => {
     try {
-      const body = req.body as { title?: string; description?: string; tags?: string[] };
+      const body = req.body as { title?: string; description?: string; tags?: string[]; jiraProjectKey?: string };
       if (!body?.title || typeof body.title !== 'string') {
         res.status(400).json({ error: 'title is required' });
         return;
@@ -34,6 +34,7 @@ export function projectsRouter(
         title: body.title,
         description: body.description,
         tags: body.tags,
+        jiraProjectKey: body.jiraProjectKey,
       });
       res.status(201).json(projectToJson(project));
     } catch (e) {

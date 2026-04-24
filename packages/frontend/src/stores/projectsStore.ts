@@ -24,9 +24,9 @@ export const useProjectsStore = defineStore('projects', () => {
     }
   }
 
-  async function createProject(title: string, description?: string) {
+  async function createProject(title: string, description?: string, jiraProjectKey?: string) {
     try {
-      const response = await axios.post<ProjectDto>(API_BASE, { title, description });
+      const response = await axios.post<ProjectDto>(API_BASE, { title, description, jiraProjectKey });
       projects.value.push(response.data);
       return response.data;
     } catch (err) {
