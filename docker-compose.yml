@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - pmdash_data:/app/data
+    environment:
+      PORT: "3001"
+      CORS_ORIGIN: "http://localhost:5173"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_PROXY_TARGET: "http://backend:3001"
+    depends_on:
+      - backend
+
+volumes:
+  pmdash_data:

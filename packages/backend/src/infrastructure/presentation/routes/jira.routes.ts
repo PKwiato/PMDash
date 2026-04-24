@@ -1,0 +1,27 @@
+import type { IEpicRepository } from '../../../domain/ports/IEpicRepository';
+import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
+import type { ITaskRepository } from '../../../domain/ports/ITaskRepository';
+import type { JiraApiAdapter } from '../../jira/JiraApiAdapter';
+import { Router } from 'express';
+
+export function jiraRouter(
+  jiraAdapter: JiraApiAdapter | null,
+  _taskRepo: ITaskRepository,
+  _projectRepo: IProjectRepository,
+  _epicRepo: IEpicRepository,
+) {
+  const r = Router();
+  r.get('/boards', async (_req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const boards = await jiraAdapter.listBoards();
+      res.json(boards);
+    } catch (e) {
+      next(e);
+    }
+  });
+  return r;
+}

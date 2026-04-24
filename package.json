@@ -1,0 +1,11 @@
+{
+  "name": "pmdash",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "docker:up": "docker compose up --build",
+    "docker:build": "docker compose build"
+  }
+}

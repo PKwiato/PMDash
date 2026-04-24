@@ -1,0 +1,38 @@
+export interface JiraBoard {
+  id: number;
+  name: string;
+  projectKey: string;
+  type: string;
+}
+
+export interface JiraIssue {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  assignee: string | null;
+  priority: string;
+  issueType: string;
+  epicKey: string | null;
+}
+
+export interface JiraSprint {
+  id: number;
+  name: string;
+  state: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface JiraBoardProgress {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
+export interface IJiraAdapter {
+  listBoards(): Promise<JiraBoard[]>;
+  listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]>;
+  listBoardSprints(boardId: number): Promise<JiraSprint[]>;
+  getIssue(issueKey: string): Promise<JiraIssue>;
+  getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
+}
