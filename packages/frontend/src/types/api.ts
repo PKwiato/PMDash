@@ -40,13 +40,22 @@ export interface JiraBoardProjectDto {
   name: string;
 }
 
+export interface JiraCommentDto {
+  id: string;
+  author: string;
+  body: string;
+  created: string;
+}
+
 export interface JiraIssueDto {
   id: string;
   key: string;
   summary: string;
+  description: string | null;
   status: string;
   assignee: string | null;
   priority: string;
   issueType: string;
   epicKey: string | null;
+  comments?: JiraCommentDto[];
 }

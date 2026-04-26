@@ -25,6 +25,12 @@ export class JiraResponseMapper {
       priority: raw.fields.priority?.name ?? 'Medium',
       issueType: raw.fields.issuetype.name,
       epicKey: raw.fields.customfield_10014 ?? raw.fields.parent?.key ?? null,
+      comments: (raw.fields as any).comment?.comments?.map((c: any) => ({
+        id: c.id,
+        author: c.author?.displayName ?? 'Unknown',
+        body: this.parseAdfToMarkdown(c.body) ?? '',
+        created: c.created,
+      })),
     };
   }
 
@@ -76,6 +82,12 @@ export class JiraResponseMapper {
       case 'listItem':
         // List items usually contain paragraphs
         return (node.content || []).map((c: any) => this.parseNode(c)).join('\n').trim();
+      case 'taskList':
+        return (node.content || []).map((c: any) => this.parseNode(c)).join('\n');
+      case 'taskItem':
+        const checkState = node.attrs?.state === 'DONE' ? 'x' : ' ';
+        const itemContent = (node.content || []).map((c: any) => this.parseNode(c)).join('').trim();
+        return `- [${checkState}] ${itemContent}`;
       case 'codeBlock':
         const lang = node.attrs?.language || '';
         const code = (node.content || []).map((c: any) => c.text).join('\n');
@@ -85,7 +97,7 @@ export class JiraResponseMapper {
       case 'hardBreak':
         return '\n';
       case 'rule':
-        return '---';
+        return '---\n';
       default:
         // Handle nested content if unknown but has content
         if (node.content) {

@@ -5,6 +5,13 @@ export interface JiraBoard {
   type: string;
 }
 
+export interface JiraComment {
+  id: string;
+  author: string;
+  body: string;
+  created: string;
+}
+
 export interface JiraIssue {
   id: string;
   key: string;
@@ -15,6 +22,7 @@ export interface JiraIssue {
   priority: string;
   issueType: string;
   epicKey: string | null;
+  comments?: JiraComment[];
 }
 
 export interface JiraSprint {

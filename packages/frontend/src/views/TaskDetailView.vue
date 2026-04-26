@@ -59,9 +59,37 @@
             <h3 class="font-headline-md text-headline-md text-slate-900">Description</h3>
             <div 
               class="prose prose-slate max-w-none prose-p:my-2 prose-headings:mb-4 prose-headings:mt-6 first:prose-headings:mt-0 font-body-lg text-body-lg text-slate-700 leading-relaxed" 
-              v-html="renderedDescription"
+              v-html="renderMarkdown(issue.description)"
             >
             </div>
+          </div>
+
+          <!-- Comments Section -->
+          <div class="pt-8 border-t border-slate-100 space-y-6">
+            <div class="flex items-center gap-2 text-slate-900">
+              <span class="material-symbols-outlined text-[20px]">forum</span>
+              <h3 class="font-headline-md text-headline-md">Comments ({{ issue.comments?.length || 0 }})</h3>
+            </div>
+            
+            <div v-if="issue.comments && issue.comments.length > 0" class="space-y-6">
+              <div v-for="comment in issue.comments" :key="comment.id" class="flex gap-4 group">
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-500 border border-slate-200">
+                  <span class="material-symbols-outlined text-[20px]">person</span>
+                </div>
+                <div class="flex-1 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="font-label-md text-label-md text-slate-900">{{ comment.author }}</span>
+                    <span class="text-label-sm text-slate-400">{{ formatDate(comment.created) }}</span>
+                  </div>
+                  <div 
+                    class="prose prose-slate prose-sm max-w-none text-slate-700 bg-slate-50/50 p-4 rounded-xl border border-slate-100 group-hover:border-slate-200 transition-colors"
+                    v-html="renderMarkdown(comment.body)"
+                  >
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="text-slate-400 italic font-body-md">No comments yet.</p>
           </div>
         </div>
       </div>
@@ -163,16 +191,30 @@ const isFocused = ref(false);
 
 const issue = computed(() => jiraStore.issues.find(i => i.key === issueId.value));
 
-const renderedDescription = computed(() => {
-  if (!issue.value?.description) return '<p class="text-slate-500 italic">No description provided.</p>';
+function renderMarkdown(content: string | null | undefined) {
+  if (!content) return '<p class="text-slate-500 italic">No content provided.</p>';
   try {
-    const html = marked.parse(issue.value.description) as string;
+    const html = marked.parse(content, {
+      gfm: true,
+      breaks: true,
+    }) as string;
     return DOMPurify.sanitize(html);
   } catch (err) {
-    console.error('Failed to parse description:', err);
-    return `<p class="text-slate-700 whitespace-pre-wrap">${issue.value.description}</p>`;
+    console.error('Failed to parse markdown:', err);
+    return `<p class="text-slate-700 whitespace-pre-wrap">${content}</p>`;
   }
-});
+}
+
+function formatDate(dateStr: string) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
 
 function handleFocus() {
   isFocused.value = true;

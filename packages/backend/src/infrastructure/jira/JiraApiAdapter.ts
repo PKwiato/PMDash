@@ -76,7 +76,7 @@ export class JiraApiAdapter implements IJiraAdapter {
 
   async getIssue(issueKey: string): Promise<JiraIssue> {
     const data = await this.client.get<unknown>(`/issue/${issueKey}`, {
-      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014',
+      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment',
     });
     return JiraResponseMapper.toIssue(data as never);
   }
@@ -105,7 +105,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       '/search/jql',
       {
         jql,
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014',
+        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment',
         maxResults: String(keys.length),
       },
     );
