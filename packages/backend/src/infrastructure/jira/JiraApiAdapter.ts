@@ -51,7 +51,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
       path,
       {
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks',
+        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks,customfield_10004',
         maxResults: '200',
       },
       true,
@@ -76,7 +76,7 @@ export class JiraApiAdapter implements IJiraAdapter {
 
   async getIssue(issueKey: string): Promise<JiraIssue> {
     const data = await this.client.get<unknown>(`/issue/${issueKey}`, {
-      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks',
+      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks,customfield_10004',
     });
     return JiraResponseMapper.toIssue(data as never);
   }
@@ -105,7 +105,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       '/search/jql',
       {
         jql,
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks',
+        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks,customfield_10004',
         maxResults: String(keys.length),
       },
     );

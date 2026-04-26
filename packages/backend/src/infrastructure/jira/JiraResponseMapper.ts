@@ -57,6 +57,7 @@ export class JiraResponseMapper {
       })),
       linkedIssues,
       subtasks,
+      storyPoints: fields.customfield_10004 ?? null,
     };
   }
 

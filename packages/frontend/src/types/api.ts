@@ -69,4 +69,5 @@ export interface JiraIssueDto {
   comments?: JiraCommentDto[];
   linkedIssues?: JiraLinkedIssueDto[];
   subtasks?: JiraLinkedIssueDto[];
+  storyPoints?: number | null;
 }

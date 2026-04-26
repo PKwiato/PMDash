@@ -44,7 +44,7 @@
                 </span>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-6 py-4 border-y border-slate-100">
+            <div class="grid grid-cols-3 gap-6 py-4 border-y border-slate-100">
               <div>
                 <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Assignee</p>
                 <div class="flex items-center gap-2" v-if="issue.assignee">
@@ -55,6 +55,13 @@
               <div>
                 <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Type</p>
                 <span class="font-body-md text-body-md text-slate-900">{{ issue.issueType }}</span>
+              </div>
+              <div>
+                <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Story Points</p>
+                <span v-if="issue.storyPoints" class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold text-body-md border border-indigo-100">
+                  {{ issue.storyPoints }}
+                </span>
+                <span v-else class="text-body-md text-slate-400 italic">None</span>
               </div>
             </div>
           </div>

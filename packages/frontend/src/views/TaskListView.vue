@@ -37,25 +37,26 @@
                   <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider">Summary</th>
                   <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-32">Status</th>
                   <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-28">Priority</th>
+                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-16 text-center">Points</th>
                   <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-32">Assignee</th>
                   <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-12"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-outline-variant">
                 <tr v-if="jiraStore.loading" class="hover:bg-surface-container transition-colors">
-                  <td colspan="6" class="px-md py-8 text-center text-on-surface-variant">
+                  <td colspan="7" class="px-md py-8 text-center text-on-surface-variant">
                     <span class="material-symbols-outlined animate-spin text-[24px]">sync</span>
                     <p class="mt-2 font-label-md">Loading tasks...</p>
                   </td>
                 </tr>
                 <tr v-else-if="jiraStore.error" class="hover:bg-surface-container transition-colors">
-                  <td colspan="6" class="px-md py-8 text-center text-error">
+                  <td colspan="7" class="px-md py-8 text-center text-error">
                     <span class="material-symbols-outlined text-[24px]">error</span>
                     <p class="mt-2 font-label-md">{{ jiraStore.error }}</p>
                   </td>
                 </tr>
                 <tr v-else-if="jiraStore.issues.length === 0" class="hover:bg-surface-container transition-colors">
-                  <td colspan="6" class="px-md py-8 text-center text-on-surface-variant">
+                  <td colspan="7" class="px-md py-8 text-center text-on-surface-variant">
                     <p class="font-label-md">No tasks found.</p>
                   </td>
                 </tr>
@@ -85,6 +86,12 @@
                       }"></span>
                       <span class="font-label-md text-on-surface">{{ issue.priority }}</span>
                     </div>
+                  </td>
+                  <td class="px-md py-3 text-center">
+                    <span v-if="issue.storyPoints" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-700 font-bold text-label-md border border-indigo-100">
+                      {{ issue.storyPoints }}
+                    </span>
+                    <span v-else class="text-on-surface-variant text-[20px] material-symbols-outlined opacity-20">horizontal_rule</span>
                   </td>
                   <td class="px-md py-3">
                     <div v-if="issue.assignee" class="flex items-center gap-2">

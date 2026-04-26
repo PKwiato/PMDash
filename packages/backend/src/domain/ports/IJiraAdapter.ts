@@ -34,6 +34,7 @@ export interface JiraIssue {
   comments?: JiraComment[];
   linkedIssues?: JiraLinkedIssue[];
   subtasks?: JiraLinkedIssue[];
+  storyPoints?: number | null;
 }
 
 export interface JiraSprint {
