@@ -15,6 +15,30 @@ export class JiraResponseMapper {
       parent?: { key: string } | null;
     };
   }): JiraIssue {
+    const fields = raw.fields as any;
+    
+    const linkedIssues = (fields.issuelinks || []).map((link: any) => {
+      const issue = link.outwardIssue || link.inwardIssue;
+      if (!issue) return null;
+      return {
+        id: issue.id,
+        key: issue.key,
+        summary: issue.fields.summary,
+        status: issue.fields.status.name,
+        priority: issue.fields.priority?.name ?? 'Medium',
+        issueType: issue.fields.issuetype.name,
+      };
+    }).filter(Boolean);
+
+    const subtasks = (fields.subtasks || []).map((st: any) => ({
+      id: st.id,
+      key: st.key,
+      summary: st.fields.summary,
+      status: st.fields.status.name,
+      priority: st.fields.priority?.name ?? 'Medium',
+      issueType: st.fields.issuetype.name,
+    }));
+
     return {
       id: raw.id,
       key: raw.key,
@@ -25,12 +49,14 @@ export class JiraResponseMapper {
       priority: raw.fields.priority?.name ?? 'Medium',
       issueType: raw.fields.issuetype.name,
       epicKey: raw.fields.customfield_10014 ?? raw.fields.parent?.key ?? null,
-      comments: (raw.fields as any).comment?.comments?.map((c: any) => ({
+      comments: fields.comment?.comments?.map((c: any) => ({
         id: c.id,
         author: c.author?.displayName ?? 'Unknown',
         body: this.parseAdfToMarkdown(c.body) ?? '',
         created: c.created,
       })),
+      linkedIssues,
+      subtasks,
     };
   }
 
@@ -98,6 +124,11 @@ export class JiraResponseMapper {
         return '\n';
       case 'rule':
         return '---\n';
+      case 'inlineCard':
+      case 'blockCard':
+        return node.attrs?.url || '';
+      case 'mention':
+        return node.attrs?.text || '';
       default:
         // Handle nested content if unknown but has content
         if (node.content) {

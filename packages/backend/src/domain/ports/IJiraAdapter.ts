@@ -12,6 +12,15 @@ export interface JiraComment {
   created: string;
 }
 
+export interface JiraLinkedIssue {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  priority: string;
+  issueType: string;
+}
+
 export interface JiraIssue {
   id: string;
   key: string;
@@ -23,6 +32,8 @@ export interface JiraIssue {
   issueType: string;
   epicKey: string | null;
   comments?: JiraComment[];
+  linkedIssues?: JiraLinkedIssue[];
+  subtasks?: JiraLinkedIssue[];
 }
 
 export interface JiraSprint {

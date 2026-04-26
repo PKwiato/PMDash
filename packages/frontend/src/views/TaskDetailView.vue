@@ -64,6 +64,86 @@
             </div>
           </div>
 
+          <!-- Sub-tasks Section -->
+          <div v-if="issue.subtasks && issue.subtasks.length > 0" class="pt-8 border-t border-slate-100 space-y-4">
+            <div class="flex items-center gap-2 text-slate-900">
+              <span class="material-symbols-outlined text-[20px]">account_tree</span>
+              <h3 class="font-headline-md text-headline-md">Sub-tasks ({{ issue.subtasks.length }})</h3>
+            </div>
+            <div class="grid gap-3">
+              <router-link 
+                v-for="subtask in issue.subtasks" 
+                :key="subtask.id"
+                :to="`/tasks/${subtask.key}`"
+                class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-secondary transition-colors group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-500 group-hover:text-secondary group-hover:border-secondary">
+                    {{ subtask.key }}
+                  </span>
+                  <span class="font-body-md text-body-md text-slate-700">{{ subtask.summary }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded font-label-sm text-label-sm uppercase tracking-wider">
+                    {{ subtask.status }}
+                  </span>
+                </div>
+              </router-link>
+            </div>
+          </div>
+
+          <!-- Linked Issues Section -->
+          <div v-if="(issue.linkedIssues && issue.linkedIssues.length > 0) || mentionedIssues.length > 0" class="pt-8 border-t border-slate-100 space-y-4">
+            <div class="flex items-center gap-2 text-slate-900">
+              <span class="material-symbols-outlined text-[20px]">link</span>
+              <h3 class="font-headline-md text-headline-md">Linked Issues</h3>
+            </div>
+            <div class="grid gap-3">
+              <!-- Formal Links -->
+              <router-link 
+                v-for="link in issue.linkedIssues" 
+                :key="link.id"
+                :to="`/tasks/${link.key}`"
+                class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl hover:border-secondary transition-colors group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-500 group-hover:text-secondary group-hover:border-secondary">
+                    {{ link.key }}
+                  </span>
+                  <span class="font-body-md text-body-md text-slate-700">{{ link.summary }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded font-label-sm text-label-sm uppercase tracking-wider">
+                    {{ link.status }}
+                  </span>
+                </div>
+              </router-link>
+
+              <!-- Mentioned Links -->
+              <router-link 
+                v-for="mKey in mentionedIssues" 
+                :key="mKey"
+                :to="`/tasks/${mKey}`"
+                class="flex items-center justify-between p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl hover:border-secondary transition-colors group"
+              >
+                <div class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-white border border-indigo-200 rounded text-[10px] font-bold text-indigo-500 group-hover:text-secondary group-hover:border-secondary">
+                    {{ mKey }}
+                  </span>
+                  <span v-if="getIssueFromStore(mKey)" class="font-body-md text-body-md text-slate-700">
+                    {{ getIssueFromStore(mKey).summary }}
+                  </span>
+                  <span v-else class="font-body-md text-body-md text-slate-400 italic">Fetching details...</span>
+                </div>
+                <div v-if="getIssueFromStore(mKey)" class="flex items-center gap-3">
+                  <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-label-sm text-label-sm uppercase tracking-wider">
+                    {{ getIssueFromStore(mKey).status }}
+                  </span>
+                </div>
+              </router-link>
+            </div>
+          </div>
+
           <!-- Comments Section -->
           <div class="pt-8 border-t border-slate-100 space-y-6">
             <div class="flex items-center gap-2 text-slate-900">
@@ -191,6 +271,26 @@ const isFocused = ref(false);
 
 const issue = computed(() => jiraStore.issues.find(i => i.key === issueId.value));
 
+const mentionedIssues = computed(() => {
+  if (!issue.value?.description) return [];
+  // Extract patterns like ABC-123
+  const regex = /([A-Z]+-[0-9]+)/g;
+  const matches = issue.value.description.match(regex) || [];
+  
+  // Filter out current issue key, duplicates, and issues already in linkedIssues or subtasks
+  const existingKeys = new Set([
+    issueId.value,
+    ...(issue.value.linkedIssues?.map(l => l.key) || []),
+    ...(issue.value.subtasks?.map(s => s.key) || [])
+  ]);
+
+  return [...new Set(matches.filter(k => !existingKeys.has(k)))];
+});
+
+function getIssueFromStore(key: string) {
+  return jiraStore.issues.find(i => i.key === key);
+}
+
 function renderMarkdown(content: string | null | undefined) {
   if (!content) return '<p class="text-slate-500 italic">No content provided.</p>';
   try {
@@ -305,6 +405,11 @@ onMounted(async () => {
     notesStore.fetchAllNotes(),
     projectsStore.fetchProjects()
   ]);
+
+  // If there are mentioned issues, fetch them too
+  if (mentionedIssues.value.length > 0) {
+    await jiraStore.fetchIssuesByKeys(mentionedIssues.value);
+  }
   
   // Find note for this task
   await notesStore.fetchNoteByJiraKey(issueId.value);

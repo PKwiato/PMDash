@@ -51,7 +51,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
       path,
       {
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014',
+        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks',
         maxResults: '200',
       },
       true,
@@ -76,7 +76,7 @@ export class JiraApiAdapter implements IJiraAdapter {
 
   async getIssue(issueKey: string): Promise<JiraIssue> {
     const data = await this.client.get<unknown>(`/issue/${issueKey}`, {
-      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment',
+      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks',
     });
     return JiraResponseMapper.toIssue(data as never);
   }
@@ -85,7 +85,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     const jql = `project = "${projectKey}" ORDER BY status`;
     const data = await this.client.get<{
       issues: Array<{ fields: { status: { name: string } } }>;
-    }>('/search/jql', {
+    }>('/search', {
       jql,
       fields: 'status',
       maxResults: '500',
@@ -102,10 +102,10 @@ export class JiraApiAdapter implements IJiraAdapter {
     if (keys.length === 0) return [];
     const jql = `key in ("${keys.join('","')}")`;
     const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
-      '/search/jql',
+      '/search',
       {
         jql,
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment',
+        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks',
         maxResults: String(keys.length),
       },
     );

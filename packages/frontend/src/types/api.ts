@@ -47,6 +47,15 @@ export interface JiraCommentDto {
   created: string;
 }
 
+export interface JiraLinkedIssueDto {
+  id: string;
+  key: string;
+  summary: string;
+  status: string;
+  priority: string;
+  issueType: string;
+}
+
 export interface JiraIssueDto {
   id: string;
   key: string;
@@ -58,4 +67,6 @@ export interface JiraIssueDto {
   issueType: string;
   epicKey: string | null;
   comments?: JiraCommentDto[];
+  linkedIssues?: JiraLinkedIssueDto[];
+  subtasks?: JiraLinkedIssueDto[];
 }
