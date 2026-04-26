@@ -124,7 +124,10 @@ const statusMapping: Record<string, string> = {
   'testing': 'Testowanie',
   'qa': 'Testowanie',
   'test': 'Testowanie',
+  'ready for qa': 'Testowanie',
+  'qa ready': 'Testowanie',
   'ready for test': 'Testowanie',
+  'ready for testing': 'Testowanie',
   'to test': 'Testowanie',
   'testowanie': 'Testowanie',
   // Beta
