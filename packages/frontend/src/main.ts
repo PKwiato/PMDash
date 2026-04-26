@@ -11,6 +11,7 @@ import TaskDetailView from './views/TaskDetailView.vue';
 import NotesOverview from './views/NotesOverview.vue';
 import ProjectDetailView from './views/ProjectDetailView.vue';
 import ProjectsView from './views/ProjectsView.vue';
+import SettingsView from './views/SettingsView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -24,6 +25,7 @@ const router = createRouter({
         { path: 'kanban', name: 'kanban', component: KanbanView },
         { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView, alias: '/task/:id' },
         { path: 'notes', name: 'notes-overview', component: NotesOverview },
+        { path: 'settings', name: 'settings', component: SettingsView },
       ]
     },
     // Old routes kept for reference

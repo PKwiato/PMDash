@@ -28,4 +28,9 @@ export class ConfigStore {
 
     return fs.readJSON(configPath) as Promise<AppConfig>;
   }
+
+  static async save(dataDir: string, config: AppConfig): Promise<void> {
+    const configPath = path.join(dataDir, 'config.json');
+    await fs.writeJSON(configPath, config, { spaces: 2 });
+  }
 }

@@ -2,6 +2,7 @@ import type { IEpicRepository } from '../../../domain/ports/IEpicRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
 import type { ITaskRepository } from '../../../domain/ports/ITaskRepository';
 import type { JiraApiAdapter } from '../../jira/JiraApiAdapter';
+import { ConfigStore, type AppConfig } from '../../config/ConfigStore';
 import { Router } from 'express';
 
 export function jiraRouter(
@@ -9,12 +10,28 @@ export function jiraRouter(
   _taskRepo: ITaskRepository,
   _projectRepo: IProjectRepository,
   _epicRepo: IEpicRepository,
-  defaultBoardId?: number
+  config: AppConfig,
+  dataDir: string
 ) {
   const r = Router();
 
   r.get('/config', async (_req, res) => {
-    res.json({ defaultBoardId });
+    res.json({ defaultBoardId: config.jira.defaultBoardId });
+  });
+
+  r.patch('/config', async (req, res, next) => {
+    try {
+      const { defaultBoardId } = req.body as { defaultBoardId: number };
+      if (typeof defaultBoardId !== 'number') {
+        res.status(400).json({ error: 'defaultBoardId must be a number' });
+        return;
+      }
+      config.jira.defaultBoardId = defaultBoardId;
+      await ConfigStore.save(dataDir, config);
+      res.json({ defaultBoardId: config.jira.defaultBoardId });
+    } catch (e) {
+      next(e);
+    }
   });
 
   r.get('/boards', async (_req, res, next) => {

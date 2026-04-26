@@ -58,6 +58,19 @@ export const useJiraStore = defineStore('jira', () => {
     }
   }
 
+  async function updateConfig(newBoardId: number) {
+    try {
+      const response = await axios.patch<{ defaultBoardId: number }>(`${API_BASE}/config`, {
+        defaultBoardId: newBoardId
+      });
+      defaultBoardId.value = response.data.defaultBoardId;
+      return true;
+    } catch (err) {
+      console.error('Error updating Jira config:', err);
+      return false;
+    }
+  }
+
   return {
     issues,
     defaultBoardId,
@@ -65,6 +78,7 @@ export const useJiraStore = defineStore('jira', () => {
     error,
     fetchConfig,
     fetchIssuesForBoard,
-    fetchIssuesByKeys
+    fetchIssuesByKeys,
+    updateConfig
   };
 });

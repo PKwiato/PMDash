@@ -13,17 +13,34 @@ export class JiraApiAdapter implements IJiraAdapter {
   constructor(private readonly client: JiraApiClient) {}
 
   async listBoards(): Promise<JiraBoard[]> {
-    const data = await this.client.get<{ values: Array<Record<string, unknown>> }>(
-      '/board',
-      {},
-      true,
-    );
-    return data.values.map(b => ({
-      id: b.id as number,
-      name: b.name as string,
-      projectKey: (b.location as { projectKey?: string } | undefined)?.projectKey ?? '',
-      type: b.type as string,
-    }));
+    const out: JiraBoard[] = [];
+    let startAt = 0;
+    const maxResults = 50;
+    
+    for (let page = 0; page < 20; page++) { // Limit to 1000 boards to prevent infinite loop
+      const data = await this.client.get<{ 
+        values: Array<Record<string, unknown>>;
+        isLast?: boolean;
+      }>(
+        '/board',
+        { startAt: String(startAt), maxResults: String(maxResults) },
+        true,
+      );
+      
+      const boards = data.values.map(b => ({
+        id: b.id as number,
+        name: b.name as string,
+        projectKey: (b.location as { projectKey?: string } | undefined)?.projectKey ?? '',
+        type: b.type as string,
+      }));
+      
+      out.push(...boards);
+      
+      if (data.isLast === true || data.values.length < maxResults) break;
+      startAt += maxResults;
+    }
+    
+    return out;
   }
 
   async listBoardProjects(boardId: number): Promise<JiraBoardProject[]> {

@@ -58,10 +58,10 @@
         </button>
       </div>
       <div class="mt-auto space-y-1 px-3 border-t border-slate-200 pt-4">
-        <a href="#" class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all rounded-lg">
+        <router-link to="/settings" class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all rounded-lg" active-class="text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 border-r-4 border-teal-600">
           <span class="material-symbols-outlined">settings</span>
           Settings
-        </a>
+        </router-link>
         <a href="#" class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all rounded-lg">
           <span class="material-symbols-outlined">logout</span>
           Logout
