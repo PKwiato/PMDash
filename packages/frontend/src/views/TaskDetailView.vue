@@ -57,8 +57,10 @@
           <!-- Description Section -->
           <div class="space-y-3">
             <h3 class="font-headline-md text-headline-md text-slate-900">Description</h3>
-            <div class="font-body-lg text-body-lg text-slate-700 leading-relaxed space-y-4 whitespace-pre-wrap">
-              {{ issue.description || 'No description provided.' }}
+            <div 
+              class="prose prose-slate max-w-none prose-p:my-2 prose-headings:mb-4 prose-headings:mt-6 first:prose-headings:mt-0 font-body-lg text-body-lg text-slate-700 leading-relaxed" 
+              v-html="renderedDescription"
+            >
             </div>
           </div>
         </div>
@@ -142,6 +144,8 @@ import { useRoute } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
 import { useProjectsStore } from '../stores/projectsStore';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 const route = useRoute();
 const jiraStore = useJiraStore();
@@ -158,6 +162,17 @@ const editorRef = ref<HTMLElement | null>(null);
 const isFocused = ref(false);
 
 const issue = computed(() => jiraStore.issues.find(i => i.key === issueId.value));
+
+const renderedDescription = computed(() => {
+  if (!issue.value?.description) return '<p class="text-slate-500 italic">No description provided.</p>';
+  try {
+    const html = marked.parse(issue.value.description) as string;
+    return DOMPurify.sanitize(html);
+  } catch (err) {
+    console.error('Failed to parse description:', err);
+    return `<p class="text-slate-700 whitespace-pre-wrap">${issue.value.description}</p>`;
+  }
+});
 
 function handleFocus() {
   isFocused.value = true;
