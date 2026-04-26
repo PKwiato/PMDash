@@ -22,7 +22,7 @@ const router = createRouter({
         { path: '', name: 'dashboard', component: DashboardView },
         { path: 'tasks', name: 'task-list', component: TaskListView },
         { path: 'kanban', name: 'kanban', component: KanbanView },
-        { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView },
+        { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView, alias: '/task/:id' },
         { path: 'notes', name: 'notes-overview', component: NotesOverview },
       ]
     },

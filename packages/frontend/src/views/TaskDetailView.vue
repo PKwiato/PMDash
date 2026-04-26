@@ -5,6 +5,10 @@
       <div class="flex items-center gap-2">
         <span class="text-slate-400 font-label-sm text-label-sm uppercase">Projects</span>
         <span class="text-slate-300">/</span>
+        <router-link v-if="issue?.epicKey" :to="`/tasks/${issue.epicKey}`" class="text-slate-400 font-label-sm text-label-sm uppercase hover:text-secondary">
+          {{ issue.epicKey }}
+        </router-link>
+        <span v-if="issue?.epicKey" class="text-slate-300">/</span>
         <span class="text-slate-400 font-label-sm text-label-sm uppercase">{{ issueId }}</span>
         <span v-if="issue" class="text-slate-300">/</span>
         <span v-if="issue" class="text-slate-900 font-label-md text-label-md">{{ issue.summary }}</span>
@@ -65,12 +69,17 @@
           </div>
 
           <!-- Sub-tasks Section -->
-          <div v-if="issue.subtasks && issue.subtasks.length > 0" class="pt-8 border-t border-slate-100 space-y-4">
-            <div class="flex items-center gap-2 text-slate-900">
-              <span class="material-symbols-outlined text-[20px]">account_tree</span>
-              <h3 class="font-headline-md text-headline-md">Sub-tasks ({{ issue.subtasks.length }})</h3>
+          <div class="pt-8 border-t border-slate-100 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-slate-900">
+                <span class="material-symbols-outlined text-[20px] text-indigo-500">account_tree</span>
+                <h3 class="font-headline-md text-headline-md">Sub-tasks <span v-if="issue.subtasks?.length" class="text-slate-400 font-normal">({{ issue.subtasks.length }})</span></h3>
+              </div>
+              <button class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                <span class="material-symbols-outlined">add</span>
+              </button>
             </div>
-            <div class="grid gap-3">
+            <div v-if="issue.subtasks && issue.subtasks.length > 0" class="grid gap-3">
               <router-link 
                 v-for="subtask in issue.subtasks" 
                 :key="subtask.id"
@@ -90,15 +99,23 @@
                 </div>
               </router-link>
             </div>
+            <div v-else class="p-4 border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 font-body-md italic bg-slate-50/30">
+              No sub-tasks yet. Click + to add one.
+            </div>
           </div>
 
           <!-- Linked Issues Section -->
-          <div v-if="(issue.linkedIssues && issue.linkedIssues.length > 0) || mentionedIssues.length > 0" class="pt-8 border-t border-slate-100 space-y-4">
-            <div class="flex items-center gap-2 text-slate-900">
-              <span class="material-symbols-outlined text-[20px]">link</span>
-              <h3 class="font-headline-md text-headline-md">Linked Issues</h3>
+          <div class="pt-8 border-t border-slate-100 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-slate-900">
+                <span class="material-symbols-outlined text-[20px] text-amber-500">link</span>
+                <h3 class="font-headline-md text-headline-md">Linked Issues</h3>
+              </div>
+              <button class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors">
+                <span class="material-symbols-outlined">add</span>
+              </button>
             </div>
-            <div class="grid gap-3">
+            <div v-if="(issue.linkedIssues && issue.linkedIssues.length > 0) || mentionedIssues.length > 0" class="grid gap-3">
               <!-- Formal Links -->
               <router-link 
                 v-for="link in issue.linkedIssues" 
@@ -141,6 +158,9 @@
                   </span>
                 </div>
               </router-link>
+            </div>
+            <div v-else class="p-4 border border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 font-body-md italic bg-slate-50/30">
+              No linked issues. Use + to link a ticket.
             </div>
           </div>
 

@@ -62,7 +62,7 @@ export class JiraResponseMapper {
 
   private static parseAdfToMarkdown(adf: any): string | null {
     if (!adf) return null;
-    if (typeof adf === 'string') return adf;
+    if (typeof adf === 'string') return this.convertWikiToMarkdown(adf);
     if (typeof adf !== 'object') return JSON.stringify(adf);
 
     if (adf.type === 'doc') {
@@ -73,6 +73,42 @@ export class JiraResponseMapper {
     }
     return JSON.stringify(adf);
   }
+
+  private static convertWikiToMarkdown(wiki: string): string {
+    if (!wiki) return '';
+    
+    let md = wiki;
+    
+    // Headers: h1. -> #, h2. -> ##, etc.
+    md = md.replace(/^h([1-6])\.\s+(.*)$/gm, (match, level, content) => {
+      return '#'.repeat(parseInt(level)) + ' ' + content;
+    });
+    
+    // Bold: *text* -> **text**
+    // We need to be careful with bullets, but usually bold is *text* and bullet is * space
+    md = md.replace(/([^\*]|^)\*([^\*\s][^\*]*[^\*\s]|[^\*\s])\*([^\*]|$)/g, '$1**$2**$3');
+    
+    // Italic: _text_ -> *text*
+    md = md.replace(/([^_]|^)_([^_ \s][^_]*[^_ \s]|[^_ \s])_([^_]|$)/g, '$1*$2*$3');
+    
+    // Strikethrough: -text- -> ~~text~~
+    md = md.replace(/([^-]|^)-([^- \s][^-]*[^- \s]|[^- \s])-([^-]|$)/g, '$1~~$2~~$3');
+    
+    // Monospace: {{text}} -> `text`
+    md = md.replace(/\{\{(.*?)\}\}/g, '`$1`');
+    
+    // Code blocks: {code} or {code:lang}
+    md = md.replace(/\{code(?::(\w+))?\}([\s\S]*?)\{code\}/g, (match, lang, code) => {
+      return `\`\`\`${lang || ''}\n${code.trim()}\n\`\`\``;
+    });
+
+    // Lists: Jira uses * for bullets, but markdown also does. 
+    // However, Jira uses # for numbered lists, markdown uses 1.
+    md = md.replace(/^#\s+(.*)$/gm, '1. $1');
+
+    return md;
+  }
+
 
   private static parseNode(node: any): string {
     if (!node) return '';
