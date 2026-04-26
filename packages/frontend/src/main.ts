@@ -6,6 +6,7 @@ import App from './App.vue';
 import MainLayout from './components/layout/MainLayout.vue';
 import DashboardView from './views/DashboardView.vue';
 import TaskListView from './views/TaskListView.vue';
+import KanbanView from './views/KanbanView.vue';
 import TaskDetailView from './views/TaskDetailView.vue';
 import NotesOverview from './views/NotesOverview.vue';
 import ProjectDetailView from './views/ProjectDetailView.vue';
@@ -20,6 +21,7 @@ const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: DashboardView },
         { path: 'tasks', name: 'task-list', component: TaskListView },
+        { path: 'kanban', name: 'kanban', component: KanbanView },
         { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView },
         { path: 'notes', name: 'notes-overview', component: NotesOverview },
       ]
