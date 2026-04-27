@@ -6,9 +6,18 @@ import { useJiraStore } from './jiraStore';
 
 const API_BASE = '/api';
 
+export interface NoteTask {
+  noteId: string;
+  noteTitle: string;
+  text: string;
+  completed: boolean;
+  line: number;
+}
+
 export const useNotesStore = defineStore('notes', () => {
   const notes = ref<NoteListItem[]>([]);
   const currentNote = ref<NoteDetail | null>(null);
+  const noteTasks = ref<NoteTask[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   
@@ -145,13 +154,28 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
+  async function fetchAllNoteTasks() {
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await axios.get<NoteTask[]>(`${API_BASE}/notes/tasks`);
+      noteTasks.value = response.data;
+    } catch (err: any) {
+      error.value = err.message || 'Failed to fetch note tasks';
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     notes,
     currentNote,
+    noteTasks,
     loading,
     error,
     fetchAllNotes,
     fetchNoteDetail,
+    fetchAllNoteTasks,
     fetchNoteByJiraKey,
     createNote,
     updateNote,

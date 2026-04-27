@@ -1,3 +1,4 @@
+import { ListAllNoteTasks } from '../../../application/use-cases/notes/ListAllNoteTasks';
 import { DeleteNote } from '../../../application/use-cases/notes/DeleteNote';
 import { GetNote } from '../../../application/use-cases/notes/GetNote';
 import { ListAllNotes } from '../../../application/use-cases/notes/ListAllNotes';
@@ -10,9 +11,19 @@ import { Router } from 'express';
 export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteRepository) {
   const r = Router();
   const listAllNotes = new ListAllNotes(noteRepo);
+  const listAllNoteTasks = new ListAllNoteTasks(noteRepo);
   const getNote = new GetNote(noteRepo);
   const updateNote = new UpdateNote(noteRepo, projectRepo);
   const deleteNote = new DeleteNote(noteRepo);
+
+  r.get('/tasks', async (_req, res, next) => {
+    try {
+      const tasks = await listAllNoteTasks.execute();
+      res.json(tasks);
+    } catch (e) {
+      next(e);
+    }
+  });
 
   r.get('/', async (_req, res, next) => {
     try {

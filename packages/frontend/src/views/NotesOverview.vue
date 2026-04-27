@@ -10,6 +10,10 @@
           <span class="material-symbols-outlined text-[18px]">filter_list</span>
           <span class="font-label-md text-label-md">Filter</span>
         </button>
+        <router-link :to="{ name: 'note-tasks' }" class="px-md py-2 border border-outline-variant text-slate-600 rounded flex items-center gap-2 hover:bg-slate-50 transition-colors">
+          <span class="material-symbols-outlined text-[18px]">checklist</span>
+          <span class="font-label-md text-label-md">View All Tasks</span>
+        </router-link>
         <button @click="openNewNoteModal" class="px-md py-2 bg-secondary text-white rounded flex items-center gap-2 hover:bg-opacity-90 transition-colors">
           <span class="material-symbols-outlined text-[18px]">add</span>
           <span class="font-label-md text-label-md">Create Note</span>

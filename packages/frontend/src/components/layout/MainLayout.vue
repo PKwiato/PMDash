@@ -50,6 +50,10 @@
           <span class="material-symbols-outlined">edit_note</span>
           Private Notes
         </router-link>
+        <router-link to="/notes/tasks" class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-100 transition-all rounded-lg" active-class="text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 border-r-4 border-teal-600">
+          <span class="material-symbols-outlined">checklist</span>
+          Note Tasks
+        </router-link>
       </nav>
       <div class="px-3 mt-4">
         <button class="w-full bg-teal-600 text-white py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm">

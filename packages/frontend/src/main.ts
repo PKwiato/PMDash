@@ -9,6 +9,7 @@ import TaskListView from './views/TaskListView.vue';
 import KanbanView from './views/KanbanView.vue';
 import TaskDetailView from './views/TaskDetailView.vue';
 import NotesOverview from './views/NotesOverview.vue';
+import NoteTasksOverview from './views/NoteTasksOverview.vue';
 import ProjectDetailView from './views/ProjectDetailView.vue';
 import ProjectsView from './views/ProjectsView.vue';
 import SettingsView from './views/SettingsView.vue';
@@ -25,6 +26,7 @@ const router = createRouter({
         { path: 'kanban', name: 'kanban', component: KanbanView },
         { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView, alias: '/task/:id' },
         { path: 'notes', name: 'notes-overview', component: NotesOverview },
+        { path: 'notes/tasks', name: 'note-tasks', component: NoteTasksOverview },
         { path: 'settings', name: 'settings', component: SettingsView },
       ]
     },
