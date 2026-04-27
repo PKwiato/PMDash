@@ -11,6 +11,7 @@
         </nav>
         <h1 class="font-headline-xl text-on-surface">Task List</h1>
       </div>
+
       <div class="flex items-center gap-sm">
         <div class="relative">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
@@ -25,11 +26,11 @@
           <button 
             @click="showFilterMenu = !showFilterMenu"
             class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg font-label-md text-on-surface hover:bg-surface-container-low transition-colors"
-            :class="{ 'bg-secondary-container text-on-secondary-container border-secondary': statusFilter || priorityFilter }"
+            :class="{ 'bg-secondary-container text-on-secondary-container border-secondary': statusFilter || priorityFilter || assigneeFilter }"
           >
             <span class="material-symbols-outlined text-[18px]">filter_list</span>
             Filter
-            <span v-if="statusFilter || priorityFilter" class="ml-1 w-2 h-2 rounded-full bg-secondary"></span>
+            <span v-if="statusFilter || priorityFilter || assigneeFilter" class="ml-1 w-2 h-2 rounded-full bg-secondary"></span>
           </button>
           
           <div v-if="showFilterMenu" class="absolute right-0 mt-2 w-56 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-10 p-2">
@@ -46,11 +47,20 @@
               </select>
             </div>
             
-            <div>
+            <div class="mb-2">
               <label class="px-2 py-1 block text-[10px] font-bold text-on-surface-variant uppercase">Priority</label>
               <select v-model="priorityFilter" class="w-full bg-transparent p-2 text-body-sm outline-none">
                 <option value="">All Priorities</option>
                 <option v-for="priority in uniquePriorities" :key="priority" :value="priority">{{ priority }}</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="px-2 py-1 block text-[10px] font-bold text-on-surface-variant uppercase">Assignee</label>
+              <select v-model="assigneeFilter" class="w-full bg-transparent p-2 text-body-sm outline-none">
+                <option value="">All Assignees</option>
+                <option v-for="assignee in uniqueAssignees" :key="assignee" :value="assignee">{{ assignee }}</option>
+                <option value="Unassigned">Unassigned</option>
               </select>
             </div>
           </div>
@@ -192,6 +202,7 @@ const jiraStore = useJiraStore();
 const searchQuery = ref('');
 const statusFilter = ref('');
 const priorityFilter = ref('');
+const assigneeFilter = ref('');
 const showFilterMenu = ref(false);
 const sortField = ref('key');
 const sortOrder = ref('asc');
@@ -205,6 +216,11 @@ const uniqueStatuses = computed(() => {
 const uniquePriorities = computed(() => {
   const priorities = new Set(jiraStore.issues.map(i => i.priority));
   return Array.from(priorities).sort();
+});
+
+const uniqueAssignees = computed(() => {
+  const assignees = new Set(jiraStore.issues.filter(i => i.assignee).map(i => i.assignee));
+  return Array.from(assignees).sort();
 });
 
 const filteredAndSortedIssues = computed(() => {
@@ -226,6 +242,13 @@ const filteredAndSortedIssues = computed(() => {
   }
   if (priorityFilter.value) {
     result = result.filter(i => i.priority === priorityFilter.value);
+  }
+  if (assigneeFilter.value) {
+    if (assigneeFilter.value === 'Unassigned') {
+      result = result.filter(i => !i.assignee);
+    } else {
+      result = result.filter(i => i.assignee === assigneeFilter.value);
+    }
   }
 
   // Sorting
@@ -282,6 +305,7 @@ function toggleSort(field: string) {
 function clearFilters() {
   statusFilter.value = '';
   priorityFilter.value = '';
+  assigneeFilter.value = '';
   searchQuery.value = '';
 }
 

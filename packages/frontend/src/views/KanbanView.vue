@@ -11,6 +11,7 @@
         </nav>
         <h1 class="font-headline-xl text-on-surface">Kanban Board</h1>
       </div>
+
       <div class="flex items-center gap-sm">
         <button @click="refresh" class="flex items-center gap-2 px-4 py-2 bg-secondary text-white rounded-lg font-label-md hover:bg-secondary/90 transition-colors shadow-sm">
           <span class="material-symbols-outlined text-[18px]">refresh</span>

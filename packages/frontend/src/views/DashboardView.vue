@@ -6,6 +6,7 @@
         <h1 class="font-headline-xl text-headline-xl text-on-surface">System Overview</h1>
         <p class="font-body-md text-body-md text-on-primary-container mt-xs">Real-time status of monitored Jira instances and team performance.</p>
       </div>
+
       <div class="flex gap-sm">
         <button class="px-md py-sm bg-white border border-outline-variant rounded-lg text-body-md font-medium text-on-surface hover:bg-slate-50 transition-colors flex items-center gap-sm">
           <span class="material-symbols-outlined text-md">filter_list</span>

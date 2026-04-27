@@ -11,6 +11,21 @@
           <router-link to="/notes" class="text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-200 h-14 flex items-center px-2" active-class="text-teal-600 dark:text-teal-400 font-bold border-b-2 border-teal-600">Private Notes</router-link>
         </div>
       </div>
+
+      <!-- Center: Board Info -->
+      <div class="hidden lg:flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
+        <div class="flex items-center gap-2 border-r border-slate-300 dark:border-slate-600 pr-4">
+          <span class="material-symbols-outlined text-[18px] text-teal-600 dark:text-teal-400">dashboard</span>
+          <span class="font-bold text-slate-700 dark:text-slate-200 whitespace-nowrap">{{ jiraStore.boardName }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full" :class="jiraStore.activeMode === 'production' ? 'bg-green-500 animate-pulse' : 'bg-amber-500'"></div>
+          <span class="text-[11px] font-bold uppercase tracking-wider" :class="jiraStore.activeMode === 'production' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'">
+            {{ jiraStore.activeMode }}
+          </span>
+        </div>
+      </div>
+
       <div class="flex items-center gap-4">
         <div class="relative group">
           <span class="material-symbols-outlined text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">search</span>
@@ -81,4 +96,14 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue';
+import { useJiraStore } from '../../stores/jiraStore';
+
+const jiraStore = useJiraStore();
+
+onMounted(async () => {
+  if (!jiraStore.defaultBoardId) {
+    await jiraStore.fetchConfig();
+  }
+});
 </script>

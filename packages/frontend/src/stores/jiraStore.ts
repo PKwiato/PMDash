@@ -7,16 +7,38 @@ const API_BASE = '/api/jira';
 
 export const useJiraStore = defineStore('jira', () => {
   const defaultBoardId = ref<number | null>(null);
+  const boardName = ref<string>('Loading...');
+  const activeMode = ref<'production' | 'test'>('production');
   const issues = ref<JiraIssueDto[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   async function fetchConfig() {
     try {
-      const response = await axios.get<{ defaultBoardId: number }>(`${API_BASE}/config`);
+      const response = await axios.get<{ defaultBoardId: number, activeMode: 'production' | 'test' }>(`${API_BASE}/config`);
       defaultBoardId.value = response.data.defaultBoardId;
+      activeMode.value = response.data.activeMode;
+      
+      if (defaultBoardId.value) {
+        await fetchBoardName(defaultBoardId.value);
+      }
     } catch (err) {
       console.error('Error fetching Jira config:', err);
+    }
+  }
+
+  async function fetchBoardName(id: number) {
+    try {
+      const response = await axios.get<any[]>(`${API_BASE}/boards`);
+      const board = response.data.find(b => b.id === id);
+      if (board) {
+        boardName.value = board.name;
+      } else {
+        boardName.value = `Board #${id}`;
+      }
+    } catch (err) {
+      console.error('Error fetching board name:', err);
+      boardName.value = `Board #${id}`;
     }
   }
 
@@ -74,6 +96,8 @@ export const useJiraStore = defineStore('jira', () => {
   return {
     issues,
     defaultBoardId,
+    boardName,
+    activeMode,
     loading,
     error,
     fetchConfig,

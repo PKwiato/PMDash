@@ -1,4 +1,4 @@
-import type { INoteRepository } from '../../domain/ports/INoteRepository';
+import type { INoteRepository } from '../../../domain/ports/INoteRepository';
 
 export interface NoteTaskDTO {
   noteId: string;

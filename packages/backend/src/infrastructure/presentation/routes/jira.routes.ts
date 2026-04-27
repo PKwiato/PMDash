@@ -16,7 +16,10 @@ export function jiraRouter(
   const r = Router();
 
   r.get('/config', async (_req, res) => {
-    res.json({ defaultBoardId: config.jira.defaultBoardId });
+    res.json({ 
+      defaultBoardId: config.jira.defaultBoardId,
+      activeMode: config.vault.activeMode
+    });
   });
 
   r.patch('/config', async (req, res, next) => {
