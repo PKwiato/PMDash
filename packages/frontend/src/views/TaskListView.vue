@@ -14,16 +14,47 @@
       <div class="flex items-center gap-sm">
         <div class="relative">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
-          <input type="text" placeholder="Search tasks..." class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg font-body-md w-64 focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all" />
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            placeholder="Search tasks..." 
+            class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg font-body-md w-64 focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all" 
+          />
         </div>
-        <button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg font-label-md text-on-surface hover:bg-surface-container-low transition-colors">
-          <span class="material-symbols-outlined text-[18px]">filter_list</span>
-          Filter
-        </button>
-        <button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg font-label-md text-on-surface hover:bg-surface-container-low transition-colors">
-          <span class="material-symbols-outlined text-[18px]">sort</span>
-          Sort
-        </button>
+        <div class="relative">
+          <button 
+            @click="showFilterMenu = !showFilterMenu"
+            class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg font-label-md text-on-surface hover:bg-surface-container-low transition-colors"
+            :class="{ 'bg-secondary-container text-on-secondary-container border-secondary': statusFilter || priorityFilter }"
+          >
+            <span class="material-symbols-outlined text-[18px]">filter_list</span>
+            Filter
+            <span v-if="statusFilter || priorityFilter" class="ml-1 w-2 h-2 rounded-full bg-secondary"></span>
+          </button>
+          
+          <div v-if="showFilterMenu" class="absolute right-0 mt-2 w-56 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg z-10 p-2">
+            <div class="p-2 border-b border-outline-variant mb-2 flex justify-between items-center">
+              <span class="font-label-sm text-on-surface-variant uppercase">Filters</span>
+              <button @click="clearFilters" class="text-secondary text-label-sm hover:underline">Clear all</button>
+            </div>
+            
+            <div class="mb-2">
+              <label class="px-2 py-1 block text-[10px] font-bold text-on-surface-variant uppercase">Status</label>
+              <select v-model="statusFilter" class="w-full bg-transparent p-2 text-body-sm outline-none">
+                <option value="">All Statuses</option>
+                <option v-for="status in uniqueStatuses" :key="status" :value="status">{{ status }}</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="px-2 py-1 block text-[10px] font-bold text-on-surface-variant uppercase">Priority</label>
+              <select v-model="priorityFilter" class="w-full bg-transparent p-2 text-body-sm outline-none">
+                <option value="">All Priorities</option>
+                <option v-for="priority in uniquePriorities" :key="priority" :value="priority">{{ priority }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
     <div class="grid grid-cols-12 gap-gutter mb-lg">
@@ -33,12 +64,42 @@
             <table class="w-full text-left border-collapse">
               <thead>
                 <tr class="bg-surface-container-low border-b border-outline-variant">
-                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-24">Task ID</th>
-                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider">Summary</th>
-                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-32">Status</th>
-                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-28">Priority</th>
-                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-16 text-center">Points</th>
-                  <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-32">Assignee</th>
+                  <th @click="toggleSort('key')" class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-24 cursor-pointer hover:text-on-surface transition-colors select-none">
+                    <div class="flex items-center gap-1">
+                      Task ID
+                      <span v-if="sortField === 'key'" class="material-symbols-outlined text-[16px]">{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                    </div>
+                  </th>
+                  <th @click="toggleSort('summary')" class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider cursor-pointer hover:text-on-surface transition-colors select-none">
+                    <div class="flex items-center gap-1">
+                      Summary
+                      <span v-if="sortField === 'summary'" class="material-symbols-outlined text-[16px]">{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                    </div>
+                  </th>
+                  <th @click="toggleSort('status')" class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-32 cursor-pointer hover:text-on-surface transition-colors select-none">
+                    <div class="flex items-center gap-1">
+                      Status
+                      <span v-if="sortField === 'status'" class="material-symbols-outlined text-[16px]">{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                    </div>
+                  </th>
+                  <th @click="toggleSort('priority')" class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-28 cursor-pointer hover:text-on-surface transition-colors select-none">
+                    <div class="flex items-center gap-1">
+                      Priority
+                      <span v-if="sortField === 'priority'" class="material-symbols-outlined text-[16px]">{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                    </div>
+                  </th>
+                  <th @click="toggleSort('storyPoints')" class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-16 text-center cursor-pointer hover:text-on-surface transition-colors select-none">
+                    <div class="flex items-center justify-center gap-1">
+                      Points
+                      <span v-if="sortField === 'storyPoints'" class="material-symbols-outlined text-[16px]">{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                    </div>
+                  </th>
+                  <th @click="toggleSort('assignee')" class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-32 cursor-pointer hover:text-on-surface transition-colors select-none">
+                    <div class="flex items-center gap-1">
+                      Assignee
+                      <span v-if="sortField === 'assignee'" class="material-symbols-outlined text-[16px]">{{ sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                    </div>
+                  </th>
                   <th class="px-md py-3 font-label-sm text-on-surface-variant uppercase tracking-wider w-12"></th>
                 </tr>
               </thead>
@@ -55,12 +116,13 @@
                     <p class="mt-2 font-label-md">{{ jiraStore.error }}</p>
                   </td>
                 </tr>
-                <tr v-else-if="jiraStore.issues.length === 0" class="hover:bg-surface-container transition-colors">
+                <tr v-else-if="filteredAndSortedIssues.length === 0" class="hover:bg-surface-container transition-colors">
                   <td colspan="7" class="px-md py-8 text-center text-on-surface-variant">
-                    <p class="font-label-md">No tasks found.</p>
+                    <p class="font-label-md">No tasks found matching your filters.</p>
+                    <button @click="clearFilters" class="mt-2 text-secondary font-label-sm hover:underline">Clear all filters</button>
                   </td>
                 </tr>
-                <tr v-else v-for="issue in jiraStore.issues" :key="issue.id" class="hover:bg-surface-container transition-colors group cursor-pointer" @click="router.push(`/tasks/${issue.key}`)">
+                <tr v-else v-for="issue in filteredAndSortedIssues" :key="issue.id" class="hover:bg-surface-container transition-colors group cursor-pointer" @click="router.push(`/tasks/${issue.key}`)">
                   <td class="px-md py-3 font-label-md text-secondary">{{ issue.key }}</td>
                   <td class="px-md py-3">
                     <div class="flex flex-col">
@@ -110,7 +172,7 @@
             </table>
           </div>
           <div class="px-md py-3 bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
-            <span class="text-body-sm text-on-surface-variant">Showing {{ jiraStore.issues.length }} tasks</span>
+            <span class="text-body-sm text-on-surface-variant">Showing {{ filteredAndSortedIssues.length }} of {{ jiraStore.issues.length }} tasks</span>
           </div>
         </div>
       </div>
@@ -119,12 +181,109 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
+
+// State for search, filter, and sort
+const searchQuery = ref('');
+const statusFilter = ref('');
+const priorityFilter = ref('');
+const showFilterMenu = ref(false);
+const sortField = ref('key');
+const sortOrder = ref('asc');
+
+// Options for filters
+const uniqueStatuses = computed(() => {
+  const statuses = new Set(jiraStore.issues.map(i => i.status));
+  return Array.from(statuses).sort();
+});
+
+const uniquePriorities = computed(() => {
+  const priorities = new Set(jiraStore.issues.map(i => i.priority));
+  return Array.from(priorities).sort();
+});
+
+const filteredAndSortedIssues = computed(() => {
+  let result = [...jiraStore.issues];
+
+  // Search
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(i => 
+      i.key.toLowerCase().includes(q) || 
+      i.summary.toLowerCase().includes(q) ||
+      (i.assignee && i.assignee.toLowerCase().includes(q))
+    );
+  }
+
+  // Filters
+  if (statusFilter.value) {
+    result = result.filter(i => i.status === statusFilter.value);
+  }
+  if (priorityFilter.value) {
+    result = result.filter(i => i.priority === priorityFilter.value);
+  }
+
+  // Sorting
+  result.sort((a: any, b: any) => {
+    let fieldA = a[sortField.value];
+    let fieldB = b[sortField.value];
+    
+    // Custom logic for priority weight
+    if (sortField.value === 'priority') {
+        const weights: Record<string, number> = { 
+          'highest': 5, 'critical': 5, 'najwyższy': 5,
+          'high': 4, 'major': 4, 'wysoki': 4,
+          'medium': 3, 'średni': 3, 'average': 3,
+          'low': 2, 'minor': 2, 'niski': 2,
+          'lowest': 1, 'trivial': 1, 'najniższy': 1 
+        };
+        const aVal = String(fieldA || '').toLowerCase().trim();
+        const bVal = String(fieldB || '').toLowerCase().trim();
+        fieldA = weights[aVal] !== undefined ? weights[aVal] : 0;
+        fieldB = weights[bVal] !== undefined ? weights[bVal] : 0;
+        
+        // If both are 0 (unknown), fall back to alphabetical sort of the original values
+        if (fieldA === 0 && fieldB === 0) {
+          fieldA = aVal;
+          fieldB = bVal;
+        }
+    }
+
+    // Equality check
+    if (fieldA === fieldB) return 0;
+
+    // Handle nulls/undefined for other fields
+    if (fieldA === null || fieldA === undefined) return 1;
+    if (fieldB === null || fieldB === undefined) return -1;
+
+    // Generic comparison
+    if (fieldA < fieldB) return sortOrder.value === 'asc' ? -1 : 1;
+    if (fieldA > fieldB) return sortOrder.value === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  return result;
+});
+
+function toggleSort(field: string) {
+  if (sortField.value === field) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortField.value = field;
+    sortOrder.value = 'asc';
+  }
+}
+
+function clearFilters() {
+  statusFilter.value = '';
+  priorityFilter.value = '';
+  searchQuery.value = '';
+}
 
 onMounted(async () => {
   await jiraStore.fetchConfig();
