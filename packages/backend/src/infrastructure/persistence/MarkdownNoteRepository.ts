@@ -10,12 +10,20 @@ import type { Tag } from '../../domain/value-objects/Tag';
 import type { WikiLink } from '../../domain/value-objects/WikiLink';
 import { FrontmatterParser } from './FrontmatterParser';
 
+import type { AppConfig } from '../config/ConfigStore';
+
 export class MarkdownNoteRepository implements INoteRepository {
   constructor(
-    private readonly dataDir: string,
+    private readonly config: AppConfig,
     private readonly parser: FrontmatterParser,
     private readonly projectRepo: IProjectRepository,
   ) {}
+
+  private get dataDir(): string {
+    return this.config.vault.activeMode === 'production'
+      ? this.config.vault.productionDir
+      : this.config.vault.testDir;
+  }
 
   private notesDir(projectSlug: string): string {
     return path.join(this.dataDir, 'projects', projectSlug, 'notes');

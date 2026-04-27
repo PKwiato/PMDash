@@ -28,12 +28,12 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   app.use(express.json());
 
   const parser = new FrontmatterParser();
-  const projectRepo = new MarkdownProjectRepository(dataDir, parser);
-  const noteRepo = new MarkdownNoteRepository(dataDir, parser, projectRepo);
+  const projectRepo = new MarkdownProjectRepository(config, parser);
+  const noteRepo = new MarkdownNoteRepository(config, parser, projectRepo);
   const epicRepo = new MarkdownEpicRepository();
   const taskRepo = new MarkdownTaskRepository();
   const tagRepo = new MarkdownTagRepository();
-  const vaultWriter = new ObsidianVaultWriter(dataDir);
+  const vaultWriter = new ObsidianVaultWriter(config);
 
   let jiraAdapter: JiraApiAdapter | null = null;
   if (config.jira.baseUrl && config.jira.token) {
@@ -51,7 +51,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   app.use('/api/tasks', tasksRouter(taskRepo, projectRepo, epicRepo, jiraAdapter));
   app.use('/api/tags', tagsRouter(tagRepo, vaultWriter));
   app.use('/api/jira', jiraRouter(jiraAdapter, taskRepo, projectRepo, epicRepo, config, dataDir));
-  app.use('/api/vault', vaultRouter(vaultWriter, tagRepo));
+  app.use('/api/vault', vaultRouter(vaultWriter, tagRepo, config, dataDir));
   app.use('/api/archive', archiveRouter(projectRepo));
   app.use(errorHandler);
 
