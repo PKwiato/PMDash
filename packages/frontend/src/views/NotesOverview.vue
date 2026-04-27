@@ -104,38 +104,92 @@
     </div>
 
     <!-- Note Editor Modal -->
-    <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl flex flex-col h-[80vh] overflow-hidden">
-        <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <input 
-            v-model="activeNoteTitle" 
-            placeholder="Note Title" 
-            :disabled="!!activeNoteId"
-            class="font-headline-md text-headline-md text-slate-900 bg-transparent border-none outline-none flex-1 disabled:opacity-50 disabled:cursor-not-allowed" 
-          />
-          <button @click="closeModal" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors">
-            <span class="material-symbols-outlined text-[24px]">close</span>
-          </button>
+    <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+      <div class="bg-[#1e1e1e] border border-[#333] rounded-xl shadow-2xl w-full max-w-4xl flex flex-col h-[85vh] overflow-hidden text-[#dcddde]">
+        <div class="p-4 border-b border-[#333] flex justify-between items-center bg-[#262626]">
+          <div class="flex items-center gap-3 flex-1">
+            <span class="material-symbols-outlined text-[#7b61ff]">description</span>
+            <input 
+              v-model="activeNoteTitle" 
+              placeholder="Untitled Note" 
+              :disabled="!!activeNoteId"
+              class="font-headline-md text-headline-md text-white bg-transparent border-none outline-none flex-1 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-slate-600" 
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="closeModal" class="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10 transition-colors">
+              <span class="material-symbols-outlined text-[24px]">close</span>
+            </button>
+          </div>
         </div>
         
-        <div class="flex-1 overflow-hidden flex flex-col p-4 bg-white">
-          <div class="border border-slate-200 rounded-lg flex-1 flex flex-col overflow-hidden focus-within:border-teal-500 transition-colors">
-            <div class="px-3 py-2 border-b border-slate-100 bg-slate-50 flex gap-1">
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_bold</span></button>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_italic</span></button>
+        <div class="flex-1 overflow-hidden flex flex-col bg-[#1e1e1e]">
+          <!-- Obsidian-style Toolbar -->
+          <div class="px-3 py-1 border-b border-[#333] bg-[#1e1e1e] flex flex-wrap gap-0.5 items-center">
+            <template v-if="!isSourceMode">
+              <button @mousedown.prevent @click="format('bold')" class="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Bold (Ctrl+B)">
+                <span class="material-symbols-outlined text-[18px]">format_bold</span>
+              </button>
+              <button @mousedown.prevent @click="format('italic')" class="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Italic (Ctrl+I)">
+                <span class="material-symbols-outlined text-[18px]">format_italic</span>
+              </button>
+              <div class="w-[1px] h-4 bg-[#333] mx-1"></div>
+              <button @mousedown.prevent @click="format('heading')" class="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Heading">
+                <span class="material-symbols-outlined text-[18px]">title</span>
+              </button>
+              <button @mousedown.prevent @click="format('list')" class="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Bullet List">
+                <span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+              </button>
+              <button @mousedown.prevent @click="format('task')" class="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Task List">
+                <span class="material-symbols-outlined text-[18px]">checklist</span>
+              </button>
+              <div class="w-[1px] h-4 bg-[#333] mx-1"></div>
+              <button @mousedown.prevent @click="format('link')" class="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" title="Link">
+                <span class="material-symbols-outlined text-[18px]">link</span>
+              </button>
+            </template>
+            <div v-else class="px-2 text-slate-500 text-[11px] uppercase tracking-wider font-bold">Source Mode</div>
+
+            <div class="flex-1"></div>
+
+            <button @click="isSourceMode = !isSourceMode" 
+                    class="px-3 py-1 rounded flex items-center gap-1.5 transition-all duration-200"
+                    :class="isSourceMode ? 'bg-[#7b61ff] text-white' : 'text-slate-400 hover:text-white hover:bg-white/10'">
+              <span class="material-symbols-outlined text-[18px]">{{ isSourceMode ? 'code' : 'menu_book' }}</span>
+              <span class="font-label-sm">{{ isSourceMode ? 'Source' : 'Live' }}</span>
+            </button>
+          </div>
+
+          <!-- Editor Area -->
+          <div class="flex-1 overflow-y-auto bg-[#1e1e1e]">
+            <div class="relative min-h-full">
+              <!-- Highlighter Layer -->
+              <div 
+                v-if="!isSourceMode"
+                class="absolute inset-0 p-6 pointer-events-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-0"
+                v-html="highlightedBody"
+              ></div>
+              
+              <!-- Editor Layer -->
+              <div 
+                ref="editorRef"
+                class="min-h-full p-6 outline-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-10 relative box-border" 
+                :class="{ 'text-transparent caret-[#7b61ff]': !isSourceMode, 'text-[#dcddde] caret-[#7b61ff]': isSourceMode }"
+                contenteditable="true"
+                @input="handleInput"
+                @click="handleEditorClick"
+                @keydown.tab.prevent="handleTab"
+                @keydown.ctrl.b.prevent="format('bold')"
+                @keydown.ctrl.i.prevent="format('italic')"
+                spellcheck="false"
+              ></div>
             </div>
-            <div 
-              ref="editorRef"
-              class="flex-1 p-4 font-body-md text-slate-800 outline-none overflow-y-auto whitespace-pre-wrap" 
-              contenteditable="true"
-              @input="handleInput"
-            ></div>
           </div>
         </div>
 
-        <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
-          <button @click="closeModal" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded font-label-md">Cancel</button>
-          <button @click="saveNote" :disabled="saving" class="px-4 py-2 bg-secondary text-white rounded font-label-md hover:bg-secondary/90 transition-colors flex items-center gap-2">
+        <div class="p-4 border-t border-[#333] bg-[#262626] flex justify-end gap-3">
+          <button @click="closeModal" class="px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded font-label-md transition-colors">Cancel</button>
+          <button @click="saveNote" :disabled="saving" class="px-6 py-2 bg-[#7b61ff] text-white rounded font-label-md hover:bg-[#6a50ee] transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20">
             <span v-if="saving" class="material-symbols-outlined animate-spin text-[16px]">sync</span>
             {{ saving ? 'Saving...' : 'Save Note' }}
           </button>
@@ -146,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref, nextTick } from 'vue';
+import { onMounted, computed, ref, nextTick, watch } from 'vue';
 import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
 import { useProjectsStore } from '../stores/projectsStore';
@@ -161,6 +215,54 @@ const activeNoteTitle = ref('');
 const activeNoteBody = ref('');
 const editorRef = ref<HTMLElement | null>(null);
 const saving = ref(false);
+const isSourceMode = ref(false);
+
+const highlightedBody = computed(() => {
+  const text = activeNoteBody.value || '';
+  
+  // Escape HTML characters
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Normalization for trailing newlines:
+  // Browsers in contenteditable show an extra line for the cursor if text ends with \n.
+  // We add a dummy character to ensure the background layer renders that line too.
+  if (text.endsWith('\n')) {
+    html += ' ';
+  }
+
+  // Headings
+  html = html.replace(/^(#{1,6}\s+.*)$/gm, (match) => {
+    return `<span style="color: #ffffff; font-weight: 700;">${match}</span>`;
+  });
+  
+  // Bold
+  html = html.replace(/(\*\*|__)(.*?)\1/g, '<span style="color: #ffffff; font-weight: 700;">$1$2$1</span>');
+  
+  // Italic
+  html = html.replace(/(\*|_)(.*?)\1/g, '<span style="font-style: italic; color: #dcddde;">$1$2$1</span>');
+  
+  // Links
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<span style="color: #4ca5ff; text-decoration: underline;">[$1]</span><span style="color: #666;">($2)</span>');
+  
+  // Wiki links
+  html = html.replace(/\[\[(.*?)\]\]/g, '<span style="color: #7b61ff;">[[</span><span style="color: #a794ff;">$1</span><span style="color: #7b61ff;">]]</span>');
+  
+  // Code
+  html = html.replace(/`(.*?)`/g, '<span style="background: #333; border-radius: 4px; padding: 0 4px; color: #da70d6; font-family: monospace;">`$1`</span>');
+  
+  // Lists and Tasks
+  html = html.replace(/^(\s*[-*+]\s+\[( |x|X)\]\s+)/gm, '<span style="color: #7b61ff; font-weight: bold;">$1</span>');
+  html = html.replace(/^(\s*[-*+]\s+)/gm, '<span style="color: #7b61ff; font-weight: bold;">$1</span>');
+  html = html.replace(/^(\s*\d+\.\s+)/gm, '<span style="color: #7b61ff; font-weight: bold;">$1</span>');
+  
+  // Quote
+  html = html.replace(/^(\s*>\s+.*)$/gm, '<span style="color: #888; font-style: italic;">$1</span>');
+
+  return html;
+});
 
 function openNewNoteModal() {
   activeNoteId.value = null;
@@ -169,7 +271,7 @@ function openNewNoteModal() {
   isModalOpen.value = true;
   nextTick(() => {
     if (editorRef.value) {
-      editorRef.value.innerHTML = '';
+      editorRef.value.innerText = '';
       editorRef.value.focus();
     }
   });
@@ -182,7 +284,7 @@ async function openEditNoteModal(note: any) {
   isModalOpen.value = true;
   
   if (editorRef.value) {
-    editorRef.value.innerHTML = activeNoteBody.value;
+    editorRef.value.innerText = activeNoteBody.value;
   }
 
   try {
@@ -191,26 +293,122 @@ async function openEditNoteModal(note: any) {
       activeNoteTitle.value = notesStore.currentNote.title;
       activeNoteBody.value = notesStore.currentNote.body || '';
       if (editorRef.value) {
-        editorRef.value.innerHTML = activeNoteBody.value;
+        editorRef.value.innerText = activeNoteBody.value;
       }
     }
   } catch (err) {
     console.error("Failed to load note detail", err);
     activeNoteBody.value = 'Error loading note.';
     if (editorRef.value) {
-      editorRef.value.innerHTML = activeNoteBody.value;
+      editorRef.value.innerText = activeNoteBody.value;
     }
   }
 }
 
 function closeModal() {
   isModalOpen.value = false;
+  isSourceMode.value = false;
 }
 
 function handleInput() {
   if (editorRef.value) {
-    activeNoteBody.value = editorRef.value.innerHTML;
+    activeNoteBody.value = editorRef.value.innerText;
   }
+}
+
+function handleTab() {
+  document.execCommand('insertText', false, '  ');
+  handleInput();
+}
+
+function handleEditorClick(e: MouseEvent) {
+  if (isSourceMode.value || !editorRef.value) return;
+  
+  // Use a small timeout to let the selection settle
+  setTimeout(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const node = range.startContainer;
+    const offset = range.startOffset;
+    
+    if (node.nodeType !== Node.TEXT_NODE) return;
+    
+    const text = node.textContent || '';
+    
+    // Find the start of the line
+    const textBefore = text.substring(0, offset);
+    const lineStart = textBefore.lastIndexOf('\n') + 1;
+    const lineText = text.substring(lineStart);
+    
+    // Check for checkbox pattern at the start of the line
+    const taskMatch = lineText.match(/^\s*[-*+]\s+\[( |x|X)\]/);
+    if (taskMatch) {
+      const checkboxPos = taskMatch[0].indexOf('[');
+      const startInNode = lineStart + checkboxPos;
+      const endInNode = lineStart + taskMatch[0].indexOf(']') + 1;
+      
+      // If click was within or very close to the brackets
+      if (offset >= startInNode && offset <= endInNode) {
+        const isChecked = taskMatch[1].toLowerCase() === 'x';
+        const newChar = isChecked ? ' ' : 'x';
+        
+        // Update the text directly in the node to preserve cursor as much as possible
+        const posInNode = startInNode + 1;
+        const newText = text.substring(0, posInNode) + newChar + text.substring(posInNode + 1);
+        node.textContent = newText;
+        
+        // Sync the state
+        activeNoteBody.value = editorRef.value?.innerText || '';
+        
+        // Force the caret to stay where it was
+        const newRange = document.createRange();
+        newRange.setStart(node, offset);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    }
+  }, 0);
+}
+
+function format(type: string) {
+  if (!editorRef.value) return;
+  editorRef.value.focus();
+
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  
+  const range = selection.getRangeAt(0);
+  const selectedText = range.toString();
+  
+  let before = '';
+  let after = '';
+  
+  // Get context to see if we're at the start of a line
+  const node = range.startContainer;
+  const offset = range.startOffset;
+  const textBefore = node.nodeType === Node.TEXT_NODE ? (node.textContent || '').substring(0, offset) : '';
+  const isStartOfLine = textBefore.length === 0 || textBefore.endsWith('\n');
+
+  switch(type) {
+    case 'bold': before = '**'; after = '**'; break;
+    case 'italic': before = '_'; after = '_'; break;
+    case 'heading': before = isStartOfLine ? '### ' : '\n### '; break;
+    case 'list': before = isStartOfLine ? '- ' : '\n- '; break;
+    case 'task': before = isStartOfLine ? '- [ ] ' : '\n- [ ] '; break;
+    case 'code': before = '`'; after = '`'; break;
+    case 'quote': before = isStartOfLine ? '> ' : '\n> '; break;
+    case 'link': before = '[['; after = ']]'; break;
+    case 'image': before = '!['; after = '](https://)'; break;
+  }
+
+  const textToInsert = before + selectedText + after;
+  document.execCommand('insertText', false, textToInsert);
+  
+  // Use a small timeout to ensure the DOM is updated and caret is moved
+  setTimeout(handleInput, 0);
 }
 
 async function saveNote() {
