@@ -208,10 +208,13 @@ import { onMounted, computed, ref, nextTick } from 'vue';
 import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
 import { useProjectsStore } from '../stores/projectsStore';
+import { useRoute, useRouter } from 'vue-router';
 
 const notesStore = useNotesStore();
 const jiraStore = useJiraStore();
 const projectsStore = useProjectsStore();
+const route = useRoute();
+const router = useRouter();
 
 const isModalOpen = ref(false);
 const activeNoteId = ref<string | null>(null);
@@ -498,6 +501,14 @@ onMounted(async () => {
     await notesStore.fetchAllNotes();
     // Discover Jira keys in fetched notes
     await notesStore.discoverJiraTasksInNotes(notesStore.notes);
+
+    if (route.query.openNote) {
+      const noteToOpen = notesStore.notes.find((n: any) => n.id === route.query.openNote);
+      if (noteToOpen) {
+        openEditNoteModal(noteToOpen);
+        router.replace({ query: {} });
+      }
+    }
   } catch (err) {
     console.error("Failed to initialize NotesOverview:", err);
   }

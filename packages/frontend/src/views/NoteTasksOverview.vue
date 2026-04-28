@@ -45,7 +45,7 @@
             <span class="material-symbols-outlined text-slate-400">description</span>
             <h2 class="font-headline-sm text-slate-900">{{ group.noteTitle }}</h2>
           </div>
-          <router-link :to="{ name: 'notes-overview' }" class="text-secondary font-label-md hover:underline flex items-center gap-1">
+          <router-link :to="{ name: 'notes-overview', query: { openNote: noteId, returnTo: 'note-tasks' } }" class="text-secondary font-label-md hover:underline flex items-center gap-1">
             Open Note
             <span class="material-symbols-outlined text-[16px]">open_in_new</span>
           </router-link>
