@@ -204,7 +204,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref, nextTick, watch } from 'vue';
+import { onMounted, computed, ref, nextTick } from 'vue';
 import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
 import { useProjectsStore } from '../stores/projectsStore';
@@ -325,7 +325,7 @@ function handleTab() {
   handleInput();
 }
 
-function handleEditorClick(e: MouseEvent) {
+function handleEditorClick() {
   if (isSourceMode.value || !editorRef.value) return;
   
   // Use a small timeout to let the selection settle

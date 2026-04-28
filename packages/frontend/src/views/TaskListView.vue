@@ -219,7 +219,10 @@ const uniquePriorities = computed(() => {
 });
 
 const uniqueAssignees = computed(() => {
-  const assignees = new Set(jiraStore.issues.filter(i => i.assignee).map(i => i.assignee));
+  const assignees = new Set<string>();
+  jiraStore.issues.forEach(i => {
+    if (i.assignee) assignees.add(i.assignee);
+  });
   return Array.from(assignees).sort();
 });
 

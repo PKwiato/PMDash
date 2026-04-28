@@ -155,13 +155,13 @@
                     {{ mKey }}
                   </span>
                   <span v-if="getIssueFromStore(mKey)" class="font-body-md text-body-md text-slate-700">
-                    {{ getIssueFromStore(mKey).summary }}
+                    {{ getIssueFromStore(mKey)?.summary }}
                   </span>
                   <span v-else class="font-body-md text-body-md text-slate-400 italic">Fetching details...</span>
                 </div>
                 <div v-if="getIssueFromStore(mKey)" class="flex items-center gap-3">
                   <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-label-sm text-label-sm uppercase tracking-wider">
-                    {{ getIssueFromStore(mKey).status }}
+                    {{ getIssueFromStore(mKey)?.status }}
                   </span>
                 </div>
               </router-link>

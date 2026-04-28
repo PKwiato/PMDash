@@ -9,7 +9,7 @@ const DATA_DIR = path.resolve(__dirname, '../../..', process.env.PM_DATA_DIR ?? 
 async function bootstrap() {
   await fs.ensureDir(DATA_DIR);
   const config = await ConfigStore.load(DATA_DIR);
-  const vaultWriter = new ObsidianVaultWriter(DATA_DIR);
+  const vaultWriter = new ObsidianVaultWriter(config);
 
   const obsidianDir = path.join(DATA_DIR, '.obsidian');
   const isFirstRun = !(await fs.pathExists(obsidianDir));
