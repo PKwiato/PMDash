@@ -165,29 +165,28 @@
           </div>
 
           <!-- Editor Area -->
-          <div class="flex-1 overflow-y-auto bg-[#1e1e1e]">
-            <div class="relative min-h-full">
-              <!-- Highlighter Layer -->
-              <div 
-                v-if="!isSourceMode"
-                class="absolute inset-0 p-6 pointer-events-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-0"
-                v-html="highlightedBody"
-              ></div>
-              
-              <!-- Editor Layer -->
-              <div 
-                ref="editorRef"
-                class="min-h-full p-6 outline-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-10 relative box-border" 
-                :class="{ 'text-transparent caret-[#7b61ff]': !isSourceMode, 'text-[#dcddde] caret-[#7b61ff]': isSourceMode }"
-                contenteditable="true"
-                @input="handleInput"
-                @click="handleEditorClick"
-                @keydown.tab.prevent="handleTab"
-                @keydown.ctrl.b.prevent="format('bold')"
-                @keydown.ctrl.i.prevent="format('italic')"
-                spellcheck="false"
-              ></div>
-            </div>
+          <div class="flex-1 relative bg-[#1e1e1e]">
+            <!-- Highlighter Layer -->
+            <div 
+              v-if="!isSourceMode"
+              ref="highlighterRef"
+              class="absolute inset-0 p-6 pointer-events-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-0 overflow-hidden"
+              v-html="highlightedBody"
+            ></div>
+            
+            <!-- Editor Layer -->
+            <textarea 
+              ref="editorRef"
+              v-model="activeNoteBody"
+              class="absolute inset-0 w-full h-full p-6 outline-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-10 box-border bg-transparent resize-none overflow-y-auto" 
+              :class="{ 'text-transparent caret-[#7b61ff]': !isSourceMode, 'text-[#dcddde] caret-[#7b61ff]': isSourceMode }"
+              @scroll="syncScroll"
+              @click="handleEditorClick"
+              @keydown.tab.prevent="handleTab"
+              @keydown.ctrl.b.prevent="format('bold')"
+              @keydown.ctrl.i.prevent="format('italic')"
+              spellcheck="false"
+            ></textarea>
           </div>
         </div>
 
@@ -220,7 +219,8 @@ const isModalOpen = ref(false);
 const activeNoteId = ref<string | null>(null);
 const activeNoteTitle = ref('');
 const activeNoteBody = ref('');
-const editorRef = ref<HTMLElement | null>(null);
+const editorRef = ref<HTMLTextAreaElement | null>(null);
+const highlighterRef = ref<HTMLElement | null>(null);
 const saving = ref(false);
 const isSourceMode = ref(false);
 
@@ -278,7 +278,6 @@ function openNewNoteModal() {
   isModalOpen.value = true;
   nextTick(() => {
     if (editorRef.value) {
-      editorRef.value.innerText = '';
       editorRef.value.focus();
     }
   });
@@ -289,26 +288,16 @@ async function openEditNoteModal(note: any) {
   activeNoteTitle.value = note.title;
   activeNoteBody.value = 'Loading...';
   isModalOpen.value = true;
-  
-  if (editorRef.value) {
-    editorRef.value.innerText = activeNoteBody.value;
-  }
 
   try {
     await notesStore.fetchNoteDetail(note.id);
     if (notesStore.currentNote) {
       activeNoteTitle.value = notesStore.currentNote.title;
       activeNoteBody.value = notesStore.currentNote.body || '';
-      if (editorRef.value) {
-        editorRef.value.innerText = activeNoteBody.value;
-      }
     }
   } catch (err) {
     console.error("Failed to load note detail", err);
     activeNoteBody.value = 'Error loading note.';
-    if (editorRef.value) {
-      editorRef.value.innerText = activeNoteBody.value;
-    }
   }
 }
 
@@ -317,86 +306,61 @@ function closeModal() {
   isSourceMode.value = false;
 }
 
-function handleInput() {
-  if (editorRef.value) {
-    activeNoteBody.value = editorRef.value.innerText;
+function syncScroll(e: Event) {
+  if (highlighterRef.value && e.target) {
+    highlighterRef.value.scrollTop = (e.target as HTMLElement).scrollTop;
+    highlighterRef.value.scrollLeft = (e.target as HTMLElement).scrollLeft;
   }
 }
 
 function handleTab() {
   document.execCommand('insertText', false, '  ');
-  handleInput();
 }
 
 function handleEditorClick() {
   if (isSourceMode.value || !editorRef.value) return;
+  const textarea = editorRef.value as HTMLTextAreaElement;
   
-  // Use a small timeout to let the selection settle
-  setTimeout(() => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
+  const pos = textarea.selectionStart;
+  const text = textarea.value;
+  
+  const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+  let lineEnd = text.indexOf('\n', pos);
+  if (lineEnd === -1) lineEnd = text.length;
+  
+  const lineText = text.substring(lineStart, lineEnd);
+  
+  const taskMatch = lineText.match(/^\s*[-*+]\s+\[( |x|X)\]/);
+  if (taskMatch) {
+    const checkboxPos = taskMatch[0].indexOf('[');
+    const startInText = lineStart + checkboxPos;
+    const endInText = lineStart + taskMatch[0].indexOf(']') + 1;
     
-    const range = selection.getRangeAt(0);
-    const node = range.startContainer;
-    const offset = range.startOffset;
-    
-    if (node.nodeType !== Node.TEXT_NODE) return;
-    
-    const text = node.textContent || '';
-    
-    // Find the start of the line
-    const textBefore = text.substring(0, offset);
-    const lineStart = textBefore.lastIndexOf('\n') + 1;
-    const lineText = text.substring(lineStart);
-    
-    // Check for checkbox pattern at the start of the line
-    const taskMatch = lineText.match(/^\s*[-*+]\s+\[( |x|X)\]/);
-    if (taskMatch) {
-      const checkboxPos = taskMatch[0].indexOf('[');
-      const startInNode = lineStart + checkboxPos;
-      const endInNode = lineStart + taskMatch[0].indexOf(']') + 1;
+    if (pos >= startInText && pos <= endInText) {
+      const isChecked = taskMatch[1].toLowerCase() === 'x';
+      const newChar = isChecked ? ' ' : 'x';
       
-      // If click was within or very close to the brackets
-      if (offset >= startInNode && offset <= endInNode) {
-        const isChecked = taskMatch[1].toLowerCase() === 'x';
-        const newChar = isChecked ? ' ' : 'x';
-        
-        // Update the text directly in the node to preserve cursor as much as possible
-        const posInNode = startInNode + 1;
-        const newText = text.substring(0, posInNode) + newChar + text.substring(posInNode + 1);
-        node.textContent = newText;
-        
-        // Sync the state
-        activeNoteBody.value = editorRef.value?.innerText || '';
-        
-        // Force the caret to stay where it was
-        const newRange = document.createRange();
-        newRange.setStart(node, offset);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-      }
+      const posInNode = startInText + 1;
+      textarea.setSelectionRange(posInNode, posInNode + 1);
+      document.execCommand('insertText', false, newChar);
+      textarea.setSelectionRange(pos, pos);
     }
-  }, 0);
+  }
 }
 
 function format(type: string) {
   if (!editorRef.value) return;
-  editorRef.value.focus();
+  const textarea = editorRef.value as HTMLTextAreaElement;
+  textarea.focus();
 
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-  
-  const range = selection.getRangeAt(0);
-  const selectedText = range.toString();
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selectedText = textarea.value.substring(start, end);
   
   let before = '';
   let after = '';
   
-  // Get context to see if we're at the start of a line
-  const node = range.startContainer;
-  const offset = range.startOffset;
-  const textBefore = node.nodeType === Node.TEXT_NODE ? (node.textContent || '').substring(0, offset) : '';
+  const textBefore = textarea.value.substring(0, start);
   const isStartOfLine = textBefore.length === 0 || textBefore.endsWith('\n');
 
   switch(type) {
@@ -413,9 +377,6 @@ function format(type: string) {
 
   const textToInsert = before + selectedText + after;
   document.execCommand('insertText', false, textToInsert);
-  
-  // Use a small timeout to ensure the DOM is updated and caret is moved
-  setTimeout(handleInput, 0);
 }
 
 async function saveNote() {
