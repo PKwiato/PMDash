@@ -7,6 +7,9 @@ import type { INoteRepository } from '../../../domain/ports/INoteRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
 import { noteToListJson } from '../serialization/noteDto';
 import { Router } from 'express';
+import multer from 'multer';
+import * as fs from 'fs-extra';
+import * as path from 'path';
 
 export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteRepository) {
   const r = Router();
@@ -61,6 +64,65 @@ export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteR
     try {
       await deleteNote.execute(req.params.id);
       res.status(204).send();
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  const storage = multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        const id = req.params.id;
+        const dir = await noteRepo.getNoteAttachmentDir(id);
+        if (!dir) {
+          cb(new Error('Note not found'), '');
+          return;
+        }
+        await fs.ensureDir(dir);
+        cb(null, dir);
+      } catch (err) {
+        cb(err as Error, '');
+      }
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname);
+      const basename = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '');
+      cb(null, `${basename}-${uniqueSuffix}${ext}`);
+    }
+  });
+
+  const upload = multer({ storage });
+
+  r.post('/:id/attachments', upload.single('file'), (req, res, next) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+      const filename = req.file.filename;
+      const url = `/api/notes/${req.params.id}/attachments/${encodeURIComponent(filename)}`;
+      res.status(201).json({ url });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  r.get('/:id/attachments/:filename', async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const filename = req.params.filename;
+      const dir = await noteRepo.getNoteAttachmentDir(id);
+      if (!dir) {
+        res.status(404).send();
+        return;
+      }
+      const filePath = path.join(dir, filename);
+      if (!(await fs.pathExists(filePath))) {
+        res.status(404).send();
+        return;
+      }
+      res.sendFile(filePath);
     } catch (e) {
       next(e);
     }

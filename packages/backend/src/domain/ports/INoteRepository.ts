@@ -12,4 +12,5 @@ export interface INoteRepository {
   noteSlugExists(projectId: string, slug: string): Promise<boolean>;
   save(note: Note, tags: Tag[], links: WikiLink[], aliases: string[], body: string): Promise<void>;
   delete(id: string): Promise<void>;
+  getNoteAttachmentDir(id: string): Promise<string | null>;
 }

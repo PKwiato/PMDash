@@ -165,34 +165,30 @@
           </div>
 
           <!-- Editor Area -->
-          <div class="flex-1 relative bg-[#1e1e1e]">
-            <!-- Highlighter Layer -->
-            <div 
-              v-if="!isSourceMode"
-              ref="highlighterRef"
-              class="absolute inset-0 p-6 pointer-events-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-0 overflow-hidden"
-              v-html="highlightedBody"
-            ></div>
-            
-            <!-- Editor Layer -->
-            <textarea 
-              ref="editorRef"
-              v-model="activeNoteBody"
-              class="absolute inset-0 w-full h-full p-6 outline-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] z-10 box-border bg-transparent resize-none overflow-y-auto" 
-              :class="{ 'text-transparent caret-[#7b61ff]': !isSourceMode, 'text-[#dcddde] caret-[#7b61ff]': isSourceMode }"
-              @scroll="syncScroll"
-              @click="handleEditorClick"
-              @keydown.tab.prevent="handleTab"
-              @keydown.ctrl.b.prevent="format('bold')"
-              @keydown.ctrl.i.prevent="format('italic')"
-              spellcheck="false"
-            ></textarea>
+          <div class="flex-1 relative bg-[#1e1e1e] flex flex-col overflow-hidden">
+            <template v-if="!isSourceMode">
+              <MilkdownWrapper 
+                v-if="isModalOpen" 
+                :modelValue="activeNoteBody"
+                @update:modelValue="activeNoteBody = $event"
+                :noteId="activeNoteId"
+                @uploadAttachment="handleUploadAttachment"
+              />
+            </template>
+            <template v-else>
+              <textarea 
+                ref="editorRef"
+                v-model="activeNoteBody"
+                class="flex-1 w-full p-6 outline-none whitespace-pre-wrap break-words font-mono text-[14px] leading-[1.6] text-[#dcddde] caret-[#7b61ff] bg-transparent resize-none overflow-y-auto" 
+                spellcheck="false"
+              ></textarea>
+            </template>
           </div>
         </div>
 
         <div class="p-4 border-t border-[#333] bg-[#262626] flex justify-end gap-3">
           <button @click="closeModal" class="px-4 py-2 text-slate-400 hover:text-white hover:bg-white/10 rounded font-label-md transition-colors">Cancel</button>
-          <button @click="saveNote" :disabled="saving" class="px-6 py-2 bg-[#7b61ff] text-white rounded font-label-md hover:bg-[#6a50ee] transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20">
+          <button @click="saveNote(true)" :disabled="saving" class="px-6 py-2 bg-[#7b61ff] text-white rounded font-label-md hover:bg-[#6a50ee] transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20">
             <span v-if="saving" class="material-symbols-outlined animate-spin text-[16px]">sync</span>
             {{ saving ? 'Saving...' : 'Save Note' }}
           </button>
@@ -208,6 +204,7 @@ import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
 import { useProjectsStore } from '../stores/projectsStore';
 import { useRoute, useRouter } from 'vue-router';
+import MilkdownWrapper from '../components/MilkdownWrapper.vue';
 
 const notesStore = useNotesStore();
 const jiraStore = useJiraStore();
@@ -220,56 +217,8 @@ const activeNoteId = ref<string | null>(null);
 const activeNoteTitle = ref('');
 const activeNoteBody = ref('');
 const editorRef = ref<HTMLTextAreaElement | null>(null);
-const highlighterRef = ref<HTMLElement | null>(null);
 const saving = ref(false);
 const isSourceMode = ref(false);
-
-const highlightedBody = computed(() => {
-  const text = activeNoteBody.value || '';
-  
-  // Escape HTML characters
-  let html = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-
-  // Normalization for trailing newlines:
-  // Browsers in contenteditable show an extra line for the cursor if text ends with \n.
-  // We add a dummy character to ensure the background layer renders that line too.
-  if (text.endsWith('\n')) {
-    html += ' ';
-  }
-
-  // Headings
-  html = html.replace(/^(#{1,6}\s+.*)$/gm, (match) => {
-    return `<span style="color: #ffffff; font-weight: 700;">${match}</span>`;
-  });
-  
-  // Bold
-  html = html.replace(/(\*\*|__)(.*?)\1/g, '<span style="color: #ffffff; font-weight: 700;">$1$2$1</span>');
-  
-  // Italic
-  html = html.replace(/(\*|_)(.*?)\1/g, '<span style="font-style: italic; color: #dcddde;">$1$2$1</span>');
-  
-  // Links
-  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<span style="color: #4ca5ff; text-decoration: underline;">[$1]</span><span style="color: #666;">($2)</span>');
-  
-  // Wiki links
-  html = html.replace(/\[\[(.*?)\]\]/g, '<span style="color: #7b61ff;">[[</span><span style="color: #a794ff;">$1</span><span style="color: #7b61ff;">]]</span>');
-  
-  // Code
-  html = html.replace(/`(.*?)`/g, '<span style="background: #333; border-radius: 4px; padding: 0 4px; color: #da70d6; font-family: monospace;">`$1`</span>');
-  
-  // Lists and Tasks
-  html = html.replace(/^(\s*[-*+]\s+\[( |x|X)\]\s+)/gm, '<span style="color: #7b61ff; font-weight: bold;">$1</span>');
-  html = html.replace(/^(\s*[-*+]\s+)/gm, '<span style="color: #7b61ff; font-weight: bold;">$1</span>');
-  html = html.replace(/^(\s*\d+\.\s+)/gm, '<span style="color: #7b61ff; font-weight: bold;">$1</span>');
-  
-  // Quote
-  html = html.replace(/^(\s*>\s+.*)$/gm, '<span style="color: #888; font-style: italic;">$1</span>');
-
-  return html;
-});
 
 function openNewNoteModal() {
   activeNoteId.value = null;
@@ -306,48 +255,6 @@ function closeModal() {
   isSourceMode.value = false;
 }
 
-function syncScroll(e: Event) {
-  if (highlighterRef.value && e.target) {
-    highlighterRef.value.scrollTop = (e.target as HTMLElement).scrollTop;
-    highlighterRef.value.scrollLeft = (e.target as HTMLElement).scrollLeft;
-  }
-}
-
-function handleTab() {
-  document.execCommand('insertText', false, '  ');
-}
-
-function handleEditorClick() {
-  if (isSourceMode.value || !editorRef.value) return;
-  const textarea = editorRef.value as HTMLTextAreaElement;
-  
-  const pos = textarea.selectionStart;
-  const text = textarea.value;
-  
-  const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
-  let lineEnd = text.indexOf('\n', pos);
-  if (lineEnd === -1) lineEnd = text.length;
-  
-  const lineText = text.substring(lineStart, lineEnd);
-  
-  const taskMatch = lineText.match(/^\s*[-*+]\s+\[( |x|X)\]/);
-  if (taskMatch) {
-    const checkboxPos = taskMatch[0].indexOf('[');
-    const startInText = lineStart + checkboxPos;
-    const endInText = lineStart + taskMatch[0].indexOf(']') + 1;
-    
-    if (pos >= startInText && pos <= endInText) {
-      const isChecked = taskMatch[1].toLowerCase() === 'x';
-      const newChar = isChecked ? ' ' : 'x';
-      
-      const posInNode = startInText + 1;
-      textarea.setSelectionRange(posInNode, posInNode + 1);
-      document.execCommand('insertText', false, newChar);
-      textarea.setSelectionRange(pos, pos);
-    }
-  }
-}
-
 function format(type: string) {
   if (!editorRef.value) return;
   const textarea = editorRef.value as HTMLTextAreaElement;
@@ -379,7 +286,34 @@ function format(type: string) {
   document.execCommand('insertText', false, textToInsert);
 }
 
-async function saveNote() {
+async function handleUploadAttachment(file: File, resolve: (url: string) => void, reject: (err: any) => void) {
+  if (!activeNoteId.value) {
+    if (!activeNoteTitle.value.trim()) {
+      alert("Please enter a title before uploading images.");
+      reject(new Error("No title"));
+      return;
+    }
+    try {
+      await saveNote(false);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+  }
+  
+  if (activeNoteId.value) {
+    try {
+      const url = await notesStore.uploadAttachment(activeNoteId.value, file);
+      resolve(url);
+    } catch (err) {
+      reject(err);
+    }
+  } else {
+    reject(new Error("Note ID not available"));
+  }
+}
+
+async function saveNote(close: boolean = true) {
   console.log("Saving note...", { id: activeNoteId.value, title: activeNoteTitle.value });
   if (!activeNoteTitle.value.trim() && !activeNoteId.value) {
     alert("Please enter a title");
@@ -399,10 +333,13 @@ async function saveNote() {
         project = await projectsStore.createProject('Scratchpad', 'General notes and scratchpad');
       }
       console.log("Saving to project:", project.id);
-      await notesStore.createNote(project.id, activeNoteTitle.value, activeNoteBody.value);
+      const newNote = await notesStore.createNote(project.id, activeNoteTitle.value, activeNoteBody.value);
+      activeNoteId.value = newNote.id; // Important for attachments to work immediately after saving a new note
     }
     await notesStore.fetchAllNotes();
-    closeModal();
+    if (close) {
+      closeModal();
+    }
   } catch (err) {
     console.error("Save note failed:", err);
     alert('Failed to save note');

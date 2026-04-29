@@ -167,6 +167,26 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
+  async function uploadAttachment(noteId: string, file: File): Promise<string> {
+    loading.value = true;
+    error.value = null;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await axios.post<{ url: string }>(`${API_BASE}/notes/${noteId}/attachments`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data.url;
+    } catch (err: any) {
+      error.value = err.message || 'Failed to upload attachment';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     notes,
     currentNote,
@@ -180,6 +200,7 @@ export const useNotesStore = defineStore('notes', () => {
     createNote,
     updateNote,
     deleteNote,
+    uploadAttachment,
     discoverJiraTasksInNotes
   };
 });

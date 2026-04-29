@@ -148,6 +148,14 @@ export class MarkdownNoteRepository implements INoteRepository {
     await fs.unlink(filePath);
   }
 
+  async getNoteAttachmentDir(id: string): Promise<string | null> {
+    const note = await this.findById(id);
+    if (!note) return null;
+    const project = await this.projectRepo.findById(note.projectId);
+    if (!project) return null;
+    return path.join(this.notesDir(project.slug), 'attachments', note.slug);
+  }
+
   private toNote(data: Record<string, unknown>): Note {
     return new Note(
       data.id as string,
