@@ -133,14 +133,14 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<style>
+<style scoped>
 .milkdown-editor-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background-color: #1e1e1e;
+  background-color: transparent;
 }
 
 .crepe-root {
@@ -149,44 +149,105 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
-/* Customizing Crepe for Dark Mode */
-.crepe-root .milkdown {
+/* Customizing Crepe for both themes */
+:deep(.crepe-root) .milkdown {
   background-color: transparent !important;
-  color: #dcddde !important;
+  color: var(--color-on-surface) !important;
   max-width: 100% !important;
-  padding: 2rem !important;
+  padding: 1.5rem !important; /* Reduced padding for better fit */
 }
 
-/* Fix for Crepe in dark theme */
-.crepe-root .cm-editor {
-  background-color: #2b2b2b !important;
-  color: #efefef !important;
+/* Fix for Crepe code blocks and editor areas */
+:deep(.crepe-root) .ProseMirror,
+:deep(.crepe-root) .ProseMirror *,
+:deep(.crepe-root) .milkdown,
+:deep(.crepe-root) .milkdown *,
+:deep(.crepe-root) .editor,
+:deep(.crepe-root) .editor *,
+:deep(.crepe-root) div,
+:deep(.crepe-root) p,
+:deep(.crepe-root) span,
+:deep(.crepe-root) li {
+  background-color: transparent !important;
 }
 
-/* Ensure task lists look good in Crepe */
-.crepe-root .task-list-item {
+/* Specific fix for text color to ensure it matches the theme */
+:deep(.crepe-root) .ProseMirror {
+  color: var(--color-on-surface) !important;
+}
+
+/* Ensure task lists and headings match the system */
+:deep(.crepe-root) .task-list-item {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
 }
 
-/* Fix Crepe's heading colors if they are too dark */
-.crepe-root h1, .crepe-root h2, .crepe-root h3, .crepe-root h4 {
-  color: #ffffff !important;
+:deep(.crepe-root) h1, :deep(.crepe-root) h2, :deep(.crepe-root) h3 {
+  color: var(--color-on-surface) !important;
+  font-weight: 600;
+  background-color: transparent !important;
 }
 
-/* Scrollbar styling */
-.crepe-root::-webkit-scrollbar {
-  width: 8px;
+/* Scrollbar styling - subtle and theme-aware */
+:deep(.crepe-root)::-webkit-scrollbar {
+  width: 6px;
 }
-.crepe-root::-webkit-scrollbar-track {
-  background: #1e1e1e;
+:deep(.crepe-root)::-webkit-scrollbar-track {
+  background: transparent;
 }
-.crepe-root::-webkit-scrollbar-thumb {
-  background: #3e3e3e;
-  border-radius: 4px;
+:deep(.crepe-root)::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 10px;
 }
-.crepe-root::-webkit-scrollbar-thumb:hover {
-  background: #4e4e4e;
+:deep(.crepe-root)::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
+/* Placeholder styling - balanced visibility */
+:deep(.crepe-root) .cm-placeholder,
+:deep(.crepe-root) .milkdown-placeholder,
+:deep(.crepe-root) [data-placeholder]::before {
+  color: var(--color-on-surface-variant) !important;
+  opacity: 0.6 !important;
+  font-style: italic;
+}
+
+/* Map Crepe variables to system variables for both themes */
+:deep(.crepe-root) .milkdown,
+:deep(.crepe-root) {
+  --crepe-color-surface: var(--color-surface);
+  --crepe-color-on-surface: var(--color-on-surface);
+  --crepe-color-on-surface-variant: var(--color-on-surface-variant);
+  --crepe-color-outline-variant: var(--color-outline-variant);
+  --crepe-color-primary: var(--color-primary);
+  --crepe-color-secondary: var(--color-secondary);
+  --crepe-color-background: transparent;
+}
+
+/* Dark mode specific fine-tuning */
+.dark :deep(.crepe-root) .milkdown,
+.dark :deep(.crepe-root) {
+  --crepe-color-surface: var(--color-surface);
+  --crepe-color-on-surface: var(--color-on-surface);
+  --crepe-color-on-surface-variant: var(--color-outline);
+  --crepe-color-outline-variant: var(--color-outline-variant);
+  --crepe-color-primary: var(--color-primary);
+  --crepe-color-secondary: var(--color-secondary);
+  --crepe-color-background: transparent;
+}
+
+.dark :deep(.crepe-root) .cm-placeholder,
+.dark :deep(.crepe-root) .milkdown-placeholder,
+.dark :deep(.crepe-root) [data-placeholder]::before {
+  color: var(--color-outline) !important;
+  opacity: 0.8 !important;
+}
+
+/* Ensure nothing has a white background in dark mode */
+.dark :deep(.crepe-root) .milkdown .editor p,
+.dark :deep(.crepe-root) .milkdown .editor li,
+.dark :deep(.crepe-root) .milkdown .editor blockquote {
+  background-color: transparent !important;
 }
 </style>
