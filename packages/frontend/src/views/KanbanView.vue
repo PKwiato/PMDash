@@ -33,7 +33,7 @@
 
     <div v-else class="flex-1 flex gap-gutter overflow-x-auto pb-lg min-h-0 items-start">
       <div v-for="status in displayColumns" :key="status" class="flex-shrink-0 w-80 flex flex-col max-h-full bg-surface-container-low rounded-xl border border-outline-variant shadow-sm">
-        <div class="p-md bg-surface-container-high/50 border-b border-outline-variant flex items-center justify-between backdrop-blur-sm sticky top-0 z-10">
+        <div class="p-md bg-surface-container-high border-b border-outline-variant flex items-center justify-between backdrop-blur-sm sticky top-0 z-10">
           <div class="flex items-center gap-3">
             <div class="w-2 h-6 rounded-full" :class="{
               'bg-slate-300': status === 'Do zrobienia',
@@ -57,7 +57,7 @@
             @click="router.push(`/tasks/${issue.key}`)">
             
             <div class="flex items-start justify-between mb-2">
-              <span class="text-[10px] font-bold tracking-wider uppercase text-secondary bg-secondary-container/20 px-1.5 py-0.5 rounded leading-none">{{ issue.key }}</span>
+              <span class="text-[10px] font-bold tracking-wider uppercase text-secondary bg-secondary-container px-1.5 py-0.5 rounded leading-none">{{ issue.key }}</span>
               <div class="flex items-center gap-1">
                  <span v-if="issue.priority === 'High' || issue.priority === 'Highest'" class="material-symbols-outlined text-[16px] text-error">keyboard_double_arrow_up</span>
                  <span v-else-if="issue.priority === 'Medium'" class="material-symbols-outlined text-[16px] text-tertiary-container">keyboard_arrow_up</span>
@@ -67,7 +67,7 @@
             
             <h3 class="font-body-md font-semibold text-on-surface line-clamp-3 mb-3 leading-snug group-hover:text-secondary transition-colors">{{ issue.summary }}</h3>
             
-            <div class="flex items-center justify-between mt-auto pt-2 border-t border-outline-variant/30">
+            <div class="flex items-center justify-between mt-auto pt-2 border-t border-outline-variant">
               <div class="flex items-center gap-1.5">
                 <span class="material-symbols-outlined text-[14px] text-on-surface-variant">description</span>
                 <span class="text-[11px] font-medium text-on-surface-variant uppercase">{{ issue.issueType }}</span>
@@ -202,10 +202,11 @@ onMounted(async () => {
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb {
-  @apply bg-outline-variant/30 rounded-full;
+  background-color: var(--color-outline-variant);
+  border-radius: 4px;
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  @apply bg-outline-variant/60;
+  background-color: var(--color-outline);
 }
 </style>

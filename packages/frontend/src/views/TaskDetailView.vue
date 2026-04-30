@@ -200,69 +200,58 @@
           </div>
         </div>
       </div>
+      <!-- Resizer Handle -->
+      <div 
+        class="w-1 hover:w-1.5 bg-slate-200 hover:bg-secondary cursor-col-resize transition-all shrink-0 relative group"
+        @mousedown="startResizing"
+      >
+        <div class="absolute inset-y-0 -left-2 -right-2 cursor-col-resize"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-slate-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      </div>
+
       <!-- Right Panel: Private Notes (Dedicated Rich Text Editor) -->
-      <div class="w-[450px] bg-slate-50 border-l border-slate-200 flex flex-col">
-        <div class="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
+      <div 
+        class="bg-slate-50 flex flex-col overflow-hidden"
+        :style="{ width: rightPanelWidth + 'px' }"
+      >
+        <div class="p-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
           <div class="flex items-center gap-2 text-teal-700">
             <span class="material-symbols-outlined">edit_note</span>
             <h2 class="font-headline-md text-headline-md">Private Notes</h2>
           </div>
           <div class="flex gap-2">
+            <button 
+              class="px-4 py-1.5 bg-secondary text-white font-label-md text-label-md rounded shadow-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
+              :disabled="!isDirty || saving"
+              @click="saveNote"
+            >
+              <span v-if="saving" class="material-symbols-outlined text-[18px] animate-spin">sync</span>
+              {{ saving ? 'Saving...' : 'Save Note' }}
+            </button>
             <button class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors" title="Lock Note">
               <span class="material-symbols-outlined text-[20px]">lock_open</span>
-            </button>
-            <button class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors">
-              <span class="material-symbols-outlined text-[20px]">more_vert</span>
             </button>
           </div>
         </div>
         <!-- Rich Text Editor Container -->
-        <div class="flex-1 flex flex-col p-6 space-y-4">
+        <div class="flex-1 flex flex-col p-4 space-y-4 overflow-hidden">
           <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden focus-within:border-teal-500 transition-all">
-            <!-- Editor Toolbar -->
-            <div class="px-3 py-2 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-1">
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_bold</span></button>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_italic</span></button>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_underlined</span></button>
-              <div class="w-[1px] bg-slate-200 mx-1"></div>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_list_bulleted</span></button>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">format_list_numbered</span></button>
-              <div class="w-[1px] bg-slate-200 mx-1"></div>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">link</span></button>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600"><span class="material-symbols-outlined text-[18px]">image</span></button>
-              <button class="p-1.5 hover:bg-white rounded text-slate-600 ml-auto"><span class="material-symbols-outlined text-[18px]">code</span></button>
-            </div>
-            <!-- Editor Content -->
-            <div 
-              ref="editorRef"
-              class="flex-1 p-4 font-body-md text-body-md text-slate-800 outline-none overflow-y-auto" 
-              contenteditable="true"
-              @input="handleInput"
-              @focus="handleFocus"
-              @blur="handleBlur"
+            <MilkdownWrapper 
+              v-model="noteBody" 
+              class="flex-1"
+              @update:modelValue="isDirty = true"
+            />
+          </div>
+          <!-- Editor Footer Info -->
+          <div class="px-2 flex items-center justify-between text-[10px] text-slate-400 uppercase font-bold tracking-wider shrink-0">
+            <span>{{ isDirty ? 'Unsaved Changes' : 'All Changes Saved' }}</span>
+            <button 
+              v-if="noteBody"
+              class="hover:text-error transition-colors"
+              @click="clearNote"
             >
-            </div>
-            <!-- Editor Footer -->
-            <div class="px-4 py-2 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                {{ isDirty ? 'Unsaved' : 'Saved' }}
-              </span>
-              <div class="flex items-center gap-2">
-                <button 
-                  class="px-3 py-1 text-slate-500 font-label-sm text-label-sm hover:bg-slate-100 rounded"
-                  @click="clearNote"
-                >
-                  Clear
-                </button>
-                <button 
-                  class="px-4 py-1.5 bg-secondary text-white font-label-md text-label-md rounded shadow-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
-                  :disabled="!isDirty || saving"
-                  @click="saveNote"
-                >
-                  {{ saving ? 'Saving...' : 'Save Note' }}
-                </button>
-              </div>
-            </div>
+              Clear Note
+            </button>
           </div>
         </div>
       </div>
@@ -274,13 +263,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
 import { useProjectsStore } from '../stores/projectsStore';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import MilkdownWrapper from '../components/MilkdownWrapper.vue';
 
 const route = useRoute();
 const jiraStore = useJiraStore();
@@ -292,9 +282,38 @@ const loading = ref(true);
 const saving = ref(false);
 const isDirty = ref(false);
 const noteBody = ref('');
-const editorRef = ref<HTMLElement | null>(null);
 
-const isFocused = ref(false);
+// Resizing logic
+const rightPanelWidth = ref(450);
+const isResizing = ref(false);
+
+function startResizing(event: MouseEvent) {
+  isResizing.value = true;
+  window.addEventListener('mousemove', doResize);
+  window.addEventListener('mouseup', stopResizing);
+  // Prevent text selection during resize
+  document.body.style.userSelect = 'none';
+}
+
+function doResize(event: MouseEvent) {
+  if (!isResizing.value) return;
+  const newWidth = window.innerWidth - event.clientX;
+  // Constraints: min 300px, max 80% of window width
+  if (newWidth > 300 && newWidth < window.innerWidth * 0.8) {
+    rightPanelWidth.value = newWidth;
+  }
+}
+
+function stopResizing() {
+  isResizing.value = false;
+  window.removeEventListener('mousemove', doResize);
+  window.removeEventListener('mouseup', stopResizing);
+  document.body.style.userSelect = '';
+}
+
+onUnmounted(() => {
+  stopResizing();
+});
 
 const issue = computed(() => jiraStore.issues.find(i => i.key === issueId.value));
 
@@ -341,31 +360,6 @@ function formatDate(dateStr: string) {
     hour: '2-digit',
     minute: '2-digit'
   });
-}
-
-function handleFocus() {
-  isFocused.value = true;
-  if (!noteBody.value && editorRef.value) {
-    editorRef.value.innerHTML = '';
-  }
-}
-
-function handleBlur() {
-  isFocused.value = false;
-  if (!noteBody.value && editorRef.value) {
-    editorRef.value.innerHTML = '<p class="text-slate-400 italic">No notes found for this task yet. Start typing to create one...</p>';
-  }
-}
-
-function handleInput() {
-  if (editorRef.value) {
-    // If it's just our placeholder, ignore
-    if (editorRef.value.innerText.trim() === 'No notes found for this task yet. Start typing to create one...' && !isFocused.value) {
-      return;
-    }
-    noteBody.value = editorRef.value.innerHTML;
-    isDirty.value = true;
-  }
 }
 
 async function saveNote() {
@@ -417,9 +411,6 @@ async function saveNote() {
 
 function clearNote() {
   noteBody.value = '';
-  if (editorRef.value) {
-    editorRef.value.innerHTML = '';
-  }
   isDirty.value = true;
 }
 
@@ -446,11 +437,6 @@ onMounted(async () => {
 
   if (notesStore.currentNote) {
     noteBody.value = notesStore.currentNote.body || '';
-    if (editorRef.value) {
-      editorRef.value.innerHTML = noteBody.value;
-    }
-  } else if (editorRef.value) {
-    editorRef.value.innerHTML = '<p class="text-slate-400 italic">No notes found for this task yet. Start typing to create one...</p>';
   }
 });
 
@@ -458,9 +444,6 @@ onMounted(async () => {
 watch(() => notesStore.currentNote, (newNote) => {
   if (newNote) {
     noteBody.value = newNote.body;
-    if (editorRef.value) {
-      editorRef.value.innerHTML = noteBody.value;
-    }
     isDirty.value = false;
   }
 });
