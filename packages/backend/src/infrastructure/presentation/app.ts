@@ -12,6 +12,7 @@ import cors from 'cors';
 import express from 'express';
 import { errorHandler } from './middleware/errorHandler';
 import { archiveRouter } from './routes/archive.routes';
+import { clockworkRouter } from './routes/clockwork.routes';
 import { epicsRouter } from './routes/epics.routes';
 import { jiraRouter } from './routes/jira.routes';
 import { noteByIdRouter } from './routes/noteById.routes';
@@ -51,6 +52,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   app.use('/api/tasks', tasksRouter(taskRepo, projectRepo, epicRepo, jiraAdapter));
   app.use('/api/tags', tagsRouter(tagRepo, vaultWriter));
   app.use('/api/jira', jiraRouter(jiraAdapter, taskRepo, projectRepo, epicRepo, config, dataDir));
+  app.use('/api/clockwork', clockworkRouter(jiraAdapter));
   app.use('/api/vault', vaultRouter(vaultWriter, tagRepo, config, dataDir));
   app.use('/api/archive', archiveRouter(projectRepo));
   app.use(errorHandler);

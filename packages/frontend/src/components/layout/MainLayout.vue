@@ -73,6 +73,10 @@
           <span class="material-symbols-outlined">checklist</span>
           Note Tasks
         </router-link>
+        <router-link to="/clockwork/analysis" class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all rounded-lg" active-class="text-secondary bg-secondary-container/20 border-r-4 border-secondary">
+          <span class="material-symbols-outlined">analytics</span>
+          Worklog Analysis
+        </router-link>
       </nav>
       <div class="px-3 mt-4">
         <button class="w-full bg-secondary text-on-secondary py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 active:scale-95 hover:bg-secondary-fixed transition-all shadow-sm">
