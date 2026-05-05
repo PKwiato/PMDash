@@ -13,6 +13,7 @@ import NoteTasksOverview from './views/NoteTasksOverview.vue';
 import ProjectDetailView from './views/ProjectDetailView.vue';
 import ProjectsView from './views/ProjectsView.vue';
 import SettingsView from './views/SettingsView.vue';
+import ClockworkAnalysisView from './views/ClockworkAnalysisView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,6 +28,7 @@ const router = createRouter({
         { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView, alias: '/task/:id' },
         { path: 'notes', name: 'notes-overview', component: NotesOverview },
         { path: 'notes/tasks', name: 'note-tasks', component: NoteTasksOverview },
+        { path: 'clockwork/analysis', name: 'clockwork-analysis', component: ClockworkAnalysisView },
         { path: 'settings', name: 'settings', component: SettingsView },
       ]
     },

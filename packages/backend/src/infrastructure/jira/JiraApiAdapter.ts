@@ -1,10 +1,12 @@
 import type {
+  ClockworkWorklog,
   IJiraAdapter,
   JiraBoard,
   JiraBoardProgress,
   JiraBoardProject,
   JiraIssue,
   JiraSprint,
+  JiraUser,
 } from '../../domain/ports/IJiraAdapter';
 import { JiraApiClient } from './JiraApiClient';
 import { JiraResponseMapper } from './JiraResponseMapper';
@@ -24,7 +26,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       }>(
         '/board',
         { startAt: String(startAt), maxResults: String(maxResults) },
-        true,
+        'agile',
       );
       
       const boards = data.values.map(b => ({
@@ -51,7 +53,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       const data = await this.client.get<{
         values: Array<{ id: string | number; key: string; name: string }>;
         isLast?: boolean;
-      }>(`/board/${boardId}/project`, { startAt: String(startAt), maxResults: String(maxResults) }, true);
+      }>(`/board/${boardId}/project`, { startAt: String(startAt), maxResults: String(maxResults) }, 'agile');
       for (const p of data.values) {
         out.push({ id: String(p.id), key: p.key, name: p.name });
       }
@@ -71,7 +73,7 @@ export class JiraApiAdapter implements IJiraAdapter {
         fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks,customfield_10004',
         maxResults: '200',
       },
-      true,
+      'agile',
     );
     return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
   }
@@ -80,7 +82,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     const data = await this.client.get<{ values: Array<Record<string, unknown>> }>(
       `/board/${boardId}/sprint`,
       { state: 'active,future' },
-      true,
+      'agile',
     );
     return data.values.map(s => ({
       id: s.id as number,
@@ -127,5 +129,108 @@ export class JiraApiAdapter implements IJiraAdapter {
       },
     );
     return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
+  }
+
+  async listClockworkWorklogs(startingAt: string, endingAt: string, userAccountId?: string, projectKeys?: string[]): Promise<ClockworkWorklog[]> {
+    // 1. Find all issues that have worklogs in the date range, restricted to specific projects if provided
+    let jql = `worklogDate >= "${startingAt}" AND worklogDate <= "${endingAt}"`;
+    if (projectKeys && projectKeys.length > 0) {
+      jql = `project in (${projectKeys.join(',')}) AND ${jql}`;
+    }
+
+    const data = await this.client.get<{ issues: Array<{ id: string; key: string }> }>(
+      '/search/jql',
+      { jql, fields: 'key', maxResults: '100' },
+      'api'
+    );
+
+    const out: ClockworkWorklog[] = [];
+    
+    // 2. For each issue, fetch its worklogs
+    // Note: This can be slow for many issues, but it's the most reliable way without a dedicated Clockwork token.
+    for (const issue of data.issues) {
+      const wlData = await this.client.get<{ worklogs: Array<Record<string, any>> }>(
+        `/issue/${issue.key}/worklog`,
+        {},
+        'api'
+      );
+
+      for (const w of wlData.worklogs) {
+        const startedDate = w.started.split('T')[0];
+        if (startedDate >= startingAt && startedDate <= endingAt) {
+          if (!userAccountId || w.author.accountId === userAccountId) {
+            out.push({
+              id: Number(w.id),
+              issueKey: issue.key,
+              userAccountId: w.author.accountId,
+              userName: w.author.displayName,
+              date: startedDate,
+              timeSpentSeconds: w.timeSpentSeconds,
+              description: w.comment || '',
+              started: w.started,
+            });
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  async listBoardUsers(boardId: number): Promise<JiraUser[]> {
+    const userMap = new Map<string, JiraUser>();
+
+    try {
+      // 1. Get board name
+      const board = await this.client.get<any>(`/board/${boardId}`, {}, 'agile').catch(() => ({ name: 'Unknown' }));
+      const boardName = board.name || 'Unknown';
+      
+      // 2. Try group search (Collector, Base, etc.)
+      const groupNames = [boardName, boardName.toLowerCase(), `team-${boardName.toLowerCase()}`];
+      for (const gn of groupNames) {
+        try {
+          const res = await this.client.get<{ values: any[] }>('/group/member', { groupname: gn, maxResults: '50' }, 'api');
+          if (res.values && res.values.length > 0) {
+            for (const u of res.values) {
+              if (u.accountId) userMap.set(u.accountId, { accountId: u.accountId, displayName: u.displayName, avatarUrl: u.avatarUrls?.['32x32'] });
+            }
+            break;
+          }
+        } catch (e) {}
+      }
+
+      // 3. Activity Fallback (if group search didn't find enough people)
+      if (userMap.size < 2) {
+        const projects = await this.listBoardProjects(boardId).catch(() => []);
+        if (projects.length > 0) {
+          const projectKeys = projects.map(p => p.key);
+          const boardIssues = await this.listBoardIssues(boardId).catch(() => []);
+          for (const issue of boardIssues) {
+            if (issue.assignee) {
+              userMap.set(issue.assignee.accountId, { accountId: issue.assignee.accountId, displayName: issue.assignee.displayName, avatarUrl: issue.assignee.avatarUrl });
+            }
+          }
+        }
+      }
+
+      // 4. GLOBAL EXCLUSION FILTER (Request from USER)
+      // Always remove these specific users as they shouldn't be in the analysis
+      const toExclude = [
+        'Kołodziej', 
+        'Kolodziej',
+        'Konieczny',
+        'Augustyn'
+      ];
+      
+      for (const [id, user] of userMap.entries()) {
+        const name = user.displayName || '';
+        if (toExclude.some(ex => name.includes(ex))) {
+          userMap.delete(id);
+        }
+      }
+    } catch (error) {
+      console.error('Final fallback error in listBoardUsers:', error);
+    }
+
+    return Array.from(userMap.values());
   }
 }

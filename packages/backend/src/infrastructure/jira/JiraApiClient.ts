@@ -18,11 +18,13 @@ export class JiraApiClient {
   private readonly headers: Record<string, string>;
   private readonly baseUrl: string;
   private readonly agileBaseUrl: string;
+  private readonly clockworkBaseUrl: string;
 
   constructor(config: JiraConfig) {
     const protocolBase = config.baseUrl.startsWith('http') ? config.baseUrl : `https://${config.baseUrl}`;
     this.baseUrl = `${protocolBase.replace(/\/$/, '')}/rest/api/3`;
     this.agileBaseUrl = `${protocolBase.replace(/\/$/, '')}/rest/agile/1.0`;
+    this.clockworkBaseUrl = `${protocolBase.replace(/\/$/, '')}/rest/clockwork/1`;
     const credentials = Buffer.from(`${config.email}:${config.token}`).toString('base64');
     this.headers = {
       Authorization: `Basic ${credentials}`,
@@ -31,8 +33,10 @@ export class JiraApiClient {
     };
   }
 
-  async get<T>(path: string, params?: Record<string, string>, agile = false): Promise<T> {
-    const base = agile ? this.agileBaseUrl : this.baseUrl;
+  async get<T>(path: string, params?: Record<string, string>, type: 'api' | 'agile' | 'clockwork' = 'api'): Promise<T> {
+    let base = this.baseUrl;
+    if (type === 'agile') base = this.agileBaseUrl;
+    if (type === 'clockwork') base = this.clockworkBaseUrl;
     const url = new URL(`${base}${path}`);
     if (params) {
       for (const [k, v] of Object.entries(params)) {

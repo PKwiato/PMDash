@@ -57,6 +57,24 @@ export interface JiraBoardProject {
   name: string;
 }
 
+export interface ClockworkWorklog {
+  id: number;
+  issueKey: string;
+  userAccountId: string;
+  userName: string;
+  date: string;
+  timeSpentSeconds: number;
+  description: string;
+  started?: string; // ISO datetime
+}
+
+export interface JiraUser {
+  accountId: string;
+  displayName: string;
+  emailAddress?: string;
+  avatarUrl?: string;
+}
+
 export interface IJiraAdapter {
   listBoards(): Promise<JiraBoard[]>;
   listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
@@ -65,4 +83,6 @@ export interface IJiraAdapter {
   getIssue(issueKey: string): Promise<JiraIssue>;
   listIssuesByKeys(keys: string[]): Promise<JiraIssue[]>;
   getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
+  listClockworkWorklogs(startingAt: string, endingAt: string, userAccountId?: string, projectKeys?: string[]): Promise<ClockworkWorklog[]>;
+  listBoardUsers(boardId: number): Promise<JiraUser[]>;
 }
