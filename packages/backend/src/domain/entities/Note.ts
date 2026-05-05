@@ -9,6 +9,7 @@ export class Note {
     public userTags: Tag[],
     public createdAt: Date,
     public updatedAt: Date,
+    public body?: string,
   ) {}
 
   withTitle(title: string): Note {

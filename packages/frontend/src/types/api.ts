@@ -21,6 +21,7 @@ export interface NoteListItem {
   projectId: string;
   createdAt: string;
   updatedAt: string;
+  body?: string;
 }
 
 export interface NoteDetail extends NoteListItem {

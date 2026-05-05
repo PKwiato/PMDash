@@ -41,8 +41,8 @@ export class MarkdownNoteRepository implements INoteRepository {
 
     for (const f of files) {
       try {
-        const data = await this.parser.parseFile(path.join(dir, f));
-        if (data.type === 'note') notes.push(this.toNote(data));
+        const result = await this.parser.parseFileWithBody(path.join(dir, f));
+        if (result.data.type === 'note') notes.push(this.toNote(result.data, result.content));
       } catch {
         /* skip */
       }
@@ -61,8 +61,8 @@ export class MarkdownNoteRepository implements INoteRepository {
     const notes: Note[] = [];
     for (const filePath of paths) {
       try {
-        const data = await this.parser.parseFile(filePath);
-        if (data.type === 'note') notes.push(this.toNote(data));
+        const result = await this.parser.parseFileWithBody(filePath);
+        if (result.data.type === 'note') notes.push(this.toNote(result.data, result.content));
       } catch {
         /* skip */
       }
@@ -156,7 +156,7 @@ export class MarkdownNoteRepository implements INoteRepository {
     return path.join(this.notesDir(project.slug), 'attachments', note.slug);
   }
 
-  private toNote(data: Record<string, unknown>): Note {
+  private toNote(data: Record<string, unknown>, body?: string): Note {
     return new Note(
       data.id as string,
       data.title as string,
@@ -165,6 +165,7 @@ export class MarkdownNoteRepository implements INoteRepository {
       this.parser.parseTags(data).filter(t => t.category === TagCategory.CUSTOM),
       new Date(data.created_at as string),
       new Date(data.updated_at as string),
+      body
     );
   }
 }

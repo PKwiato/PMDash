@@ -5,11 +5,23 @@
         <h1 class="font-headline-xl text-headline-xl text-on-surface">Private Notes</h1>
         <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Personal thoughts and draft documentation for your current projects.</p>
       </div>
-      <div class="flex gap-sm">
-        <button class="px-md py-2 border border-outline-variant text-on-surface-variant rounded flex items-center gap-2 hover:bg-surface-container transition-colors">
-          <span class="material-symbols-outlined text-[18px]">filter_list</span>
-          <span class="font-label-md text-label-md">Filter</span>
-        </button>
+      <div class="flex gap-sm items-center">
+        <div class="relative group">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] transition-colors group-focus-within:text-secondary">search</span>
+          <input 
+            v-model="searchQuery" 
+            type="text" 
+            placeholder="Search notes..." 
+            class="pl-10 pr-10 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition-all w-[250px] font-body-sm"
+          />
+          <button 
+            v-if="searchQuery" 
+            @click="searchQuery = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface transition-colors"
+          >
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
         <router-link :to="{ name: 'note-tasks' }" class="px-md py-2 border border-outline-variant text-on-surface-variant rounded flex items-center gap-2 hover:bg-surface-container transition-colors">
           <span class="material-symbols-outlined text-[18px]">checklist</span>
           <span class="font-label-md text-label-md">View All Tasks</span>
@@ -30,7 +42,7 @@
     <!-- Bento Grid Layout for Notes -->
     <div v-else class="grid grid-cols-12 gap-gutter">
       <!-- Standard Note Cards -->
-      <div v-for="note in notesStore.notes" :key="note.id" 
+      <div v-for="note in filteredNotes" :key="note.id" 
            @click="openEditNoteModal(note)"
            class="col-span-12 md:col-span-6 lg:col-span-4 group bg-surface-container-lowest border border-outline-variant rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-surface-container-low cursor-pointer relative">
         
@@ -219,6 +231,16 @@ const activeNoteBody = ref('');
 const editorRef = ref<HTMLTextAreaElement | null>(null);
 const saving = ref(false);
 const isSourceMode = ref(false);
+const searchQuery = ref('');
+
+const filteredNotes = computed(() => {
+  if (!searchQuery.value.trim()) return notesStore.notes;
+  const query = searchQuery.value.toLowerCase();
+  return notesStore.notes.filter(note => 
+    note.title.toLowerCase().includes(query) ||
+    (note as any).body?.toLowerCase().includes(query)
+  );
+});
 
 function openNewNoteModal() {
   activeNoteId.value = null;
