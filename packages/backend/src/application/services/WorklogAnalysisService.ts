@@ -14,7 +14,7 @@ export interface UserAnalysis {
 }
 
 export class WorklogAnalysisService {
-  constructor(private readonly jiraAdapter: IJiraAdapter) {}
+  constructor(private readonly jiraAdapter: IJiraAdapter) { }
 
   async analyzeBoard(boardId: number, dateFrom: string, dateTo: string): Promise<UserAnalysis[]> {
     // 1. Get board projects and users
@@ -41,7 +41,7 @@ export class WorklogAnalysisService {
     for (const user of users) {
       const userLogs = worklogsByUser[user.accountId] || [];
       const userInconsistencies: WorklogInconsistency[] = [];
-      
+
       // Calculate total seconds
       const totalSeconds = userLogs.reduce((sum, w) => sum + w.timeSpentSeconds, 0);
 
@@ -74,11 +74,11 @@ export class WorklogAnalysisService {
           }
         } else {
           // Workday
-          if (dailyHours < 7 && dailyHours > 0) {
+          if (dailyHours < 6 && dailyHours > 0) {
             userInconsistencies.push({
               type: 'missing_hours',
               date: dateStr,
-              details: `Only ${dailyHours.toFixed(1)}h reported (expected min 7h).`,
+              details: `Only ${dailyHours.toFixed(1)}h reported (expected min 6h).`,
               severity: 'medium',
             });
           } else if (dailyHours === 0) {
