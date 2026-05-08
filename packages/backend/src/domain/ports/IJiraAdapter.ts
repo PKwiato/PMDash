@@ -83,6 +83,6 @@ export interface IJiraAdapter {
   getIssue(issueKey: string): Promise<JiraIssue>;
   listIssuesByKeys(keys: string[]): Promise<JiraIssue[]>;
   getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
-  listClockworkWorklogs(startingAt: string, endingAt: string, userAccountId?: string, projectKeys?: string[]): Promise<ClockworkWorklog[]>;
+  listClockworkWorklogs(startingAt: string, endingAt: string, userAccountIds?: string[] | string, projectKeys?: string[]): Promise<ClockworkWorklog[]>;
   listBoardUsers(boardId: number): Promise<JiraUser[]>;
 }

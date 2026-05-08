@@ -27,10 +27,10 @@ export class WorklogAnalysisService {
 
     const projectKeys = projects.map(p => p.key);
 
-    // 2. Get worklogs for the period, filtered by board projects
-    const allWorklogs = await this.jiraAdapter.listClockworkWorklogs(dateFrom, dateTo, undefined, projectKeys);
+    // 2. Get ALL worklogs for these users in the period (across all projects)
+    const userIds = users.map(u => u.accountId);
+    const allWorklogs = await this.jiraAdapter.listClockworkWorklogs(dateFrom, dateTo, userIds, undefined);
 
-    // 3. Group worklogs by user and date
     const worklogsByUser: Record<string, ClockworkWorklog[]> = {};
     for (const user of users) {
       worklogsByUser[user.accountId] = allWorklogs.filter(w => w.userAccountId === user.accountId);

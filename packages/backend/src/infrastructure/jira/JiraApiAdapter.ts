@@ -131,23 +131,34 @@ export class JiraApiAdapter implements IJiraAdapter {
     return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
   }
 
-  async listClockworkWorklogs(startingAt: string, endingAt: string, userAccountId?: string, projectKeys?: string[]): Promise<ClockworkWorklog[]> {
-    // 1. Find all issues that have worklogs in the date range, restricted to specific projects if provided
+  async listClockworkWorklogs(startingAt: string, endingAt: string, userAccountIds?: string[] | string, projectKeys?: string[]): Promise<ClockworkWorklog[]> {
+    // 1. Find all issues that have worklogs in the date range
     let jql = `worklogDate >= "${startingAt}" AND worklogDate <= "${endingAt}"`;
+    
     if (projectKeys && projectKeys.length > 0) {
       jql = `project in (${projectKeys.join(',')}) AND ${jql}`;
     }
 
+    if (userAccountIds) {
+      const ids = Array.isArray(userAccountIds) ? userAccountIds : [userAccountIds];
+      if (ids.length > 0) {
+        jql = `worklogAuthor in ("${ids.join('","')}") AND ${jql}`;
+      }
+    }
+
     const data = await this.client.get<{ issues: Array<{ id: string; key: string }> }>(
       '/search/jql',
-      { jql, fields: 'key', maxResults: '100' },
+      { jql, fields: 'key', maxResults: '500' },
       'api'
     );
 
     const out: ClockworkWorklog[] = [];
     
+    const targetUserIds = userAccountIds 
+      ? (Array.isArray(userAccountIds) ? new Set(userAccountIds) : new Set([userAccountIds]))
+      : null;
+
     // 2. For each issue, fetch its worklogs
-    // Note: This can be slow for many issues, but it's the most reliable way without a dedicated Clockwork token.
     for (const issue of data.issues) {
       const wlData = await this.client.get<{ worklogs: Array<Record<string, any>> }>(
         `/issue/${issue.key}/worklog`,
@@ -158,7 +169,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       for (const w of wlData.worklogs) {
         const startedDate = w.started.split('T')[0];
         if (startedDate >= startingAt && startedDate <= endingAt) {
-          if (!userAccountId || w.author.accountId === userAccountId) {
+          if (!targetUserIds || targetUserIds.has(w.author.accountId)) {
             out.push({
               id: Number(w.id),
               issueKey: issue.key,
@@ -184,8 +195,15 @@ export class JiraApiAdapter implements IJiraAdapter {
       const board = await this.client.get<any>(`/board/${boardId}`, {}, 'agile').catch(() => ({ name: 'Unknown' }));
       const boardName = board.name || 'Unknown';
       
-      // 2. Try group search (Collector, Base, etc.)
-      const groupNames = [boardName, boardName.toLowerCase(), `team-${boardName.toLowerCase()}`];
+      // 2. Try group search (Collector, Base, Team Base, etc.)
+      const groupNames = [
+        boardName, 
+        boardName.toLowerCase(), 
+        `team-${boardName.toLowerCase()}`,
+        `team ${boardName.toLowerCase()}`,
+        boardName.replace('Team ', ''),
+        boardName.replace('team ', '')
+      ];
       for (const gn of groupNames) {
         try {
           const res = await this.client.get<{ values: any[] }>('/group/member', { groupname: gn, maxResults: '50' }, 'api');
@@ -198,19 +216,7 @@ export class JiraApiAdapter implements IJiraAdapter {
         } catch (e) {}
       }
 
-      // 3. Activity Fallback (if group search didn't find enough people)
-      if (userMap.size < 2) {
-        const projects = await this.listBoardProjects(boardId).catch(() => []);
-        if (projects.length > 0) {
-          const projectKeys = projects.map(p => p.key);
-          const boardIssues = await this.listBoardIssues(boardId).catch(() => []);
-          for (const issue of boardIssues) {
-            if (issue.assignee) {
-              userMap.set(issue.assignee.accountId, { accountId: issue.assignee.accountId, displayName: issue.assignee.displayName, avatarUrl: issue.assignee.avatarUrl });
-            }
-          }
-        }
-      }
+      // 3. Activity Discovery removed as per user request to be group-strict
 
       // 4. GLOBAL EXCLUSION FILTER (Request from USER)
       // Always remove these specific users as they shouldn't be in the analysis
