@@ -22,6 +22,8 @@ export interface NoteListItem {
   createdAt: string;
   updatedAt: string;
   body?: string;
+  pinned?: boolean;
+  archived?: boolean;
 }
 
 export interface NoteDetail extends NoteListItem {

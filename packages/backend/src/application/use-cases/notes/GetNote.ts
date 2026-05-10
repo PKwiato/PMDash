@@ -9,6 +9,8 @@ export interface NoteWithBody {
   createdAt: string;
   updatedAt: string;
   body: string;
+  pinned: boolean;
+  archived: boolean;
 }
 
 export class GetNote {
@@ -29,6 +31,8 @@ export class GetNote {
       createdAt: note.createdAt.toISOString(),
       updatedAt: note.updatedAt.toISOString(),
       body,
+      pinned: note.pinned,
+      archived: note.archived,
     };
   }
 }

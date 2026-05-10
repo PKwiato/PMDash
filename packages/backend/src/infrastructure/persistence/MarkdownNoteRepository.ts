@@ -48,7 +48,7 @@ export class MarkdownNoteRepository implements INoteRepository {
       }
     }
 
-    return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return MarkdownNoteRepository.sortNotes(notes);
   }
 
   async findAll(): Promise<Note[]> {
@@ -68,7 +68,15 @@ export class MarkdownNoteRepository implements INoteRepository {
       }
     }
 
-    return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return MarkdownNoteRepository.sortNotes(notes);
+  }
+
+  private static sortNotes(notes: Note[]): Note[] {
+    return [...notes].sort((a, b) => {
+      if (a.archived !== b.archived) return a.archived ? 1 : -1;
+      if (!a.archived && !b.archived && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
   }
 
   async findById(id: string): Promise<Note | null> {
@@ -133,6 +141,8 @@ export class MarkdownNoteRepository implements INoteRepository {
         project_id: note.projectId,
         created_at: note.createdAt.toISOString(),
         updated_at: note.updatedAt.toISOString(),
+        pinned: note.pinned,
+        archived: note.archived,
       },
       tags,
       aliases,
@@ -165,7 +175,13 @@ export class MarkdownNoteRepository implements INoteRepository {
       this.parser.parseTags(data).filter(t => t.category === TagCategory.CUSTOM),
       new Date(data.created_at as string),
       new Date(data.updated_at as string),
-      body
+      body,
+      MarkdownNoteRepository.asBool(data.pinned),
+      MarkdownNoteRepository.asBool(data.archived),
     );
+  }
+
+  private static asBool(v: unknown): boolean {
+    return v === true || v === 'true';
   }
 }

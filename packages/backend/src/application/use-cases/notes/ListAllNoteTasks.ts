@@ -16,6 +16,7 @@ export class ListAllNoteTasks {
     const allTasks: NoteTaskDTO[] = [];
 
     for (const note of notes) {
+      if (note.archived) continue;
       const body = await this.noteRepo.readBody(note.id);
       if (!body) continue;
 
