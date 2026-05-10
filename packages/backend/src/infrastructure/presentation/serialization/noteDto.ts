@@ -9,5 +9,7 @@ export function noteToListJson(n: Note) {
     createdAt: n.createdAt.toISOString(),
     updatedAt: n.updatedAt.toISOString(),
     body: n.body,
+    pinned: n.pinned,
+    archived: n.archived,
   };
 }

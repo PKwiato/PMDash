@@ -97,11 +97,16 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function updateNote(id: string, body: string, title?: string) {
+  async function updateNote(
+    id: string,
+    body: string,
+    title?: string,
+    opts?: { pinned?: boolean; archived?: boolean },
+  ) {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.put<NoteDetail>(`/notes/${id}`, { title, body });
+      const response = await api.put<NoteDetail>(`/notes/${id}`, { title, body, ...opts });
       currentNote.value = response.data;
       const idx = notes.value.findIndex(n => n.id === id);
       if (idx !== -1) {
@@ -113,6 +118,33 @@ export const useNotesStore = defineStore('notes', () => {
       throw err;
     } finally {
       loading.value = false;
+    }
+  }
+
+  /** Pin/archive flags via PUT (PATCH is not always routed). */
+  async function patchNoteMetadata(id: string, patch: { pinned?: boolean; archived?: boolean }) {
+    error.value = null;
+    try {
+      const cached = notes.value.find(n => n.id === id);
+      let body = cached?.body;
+      let title = cached?.title;
+      if (typeof body !== 'string') {
+        const detailResp = await api.get<NoteDetail>(`/notes/${id}`);
+        body = detailResp.data.body;
+        title = detailResp.data.title;
+      }
+      const response = await api.put<NoteDetail>(`/notes/${id}`, { body, title, ...patch });
+      const idx = notes.value.findIndex(n => n.id === id);
+      if (idx !== -1) {
+        notes.value[idx] = { ...notes.value[idx], ...response.data };
+      }
+      if (currentNote.value?.id === id) {
+        currentNote.value = response.data;
+      }
+      return response.data;
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to update note');
+      throw err;
     }
   }
 
@@ -178,6 +210,7 @@ export const useNotesStore = defineStore('notes', () => {
     fetchNoteByJiraKey,
     createNote,
     updateNote,
+    patchNoteMetadata,
     deleteNote,
     uploadAttachment,
     discoverJiraTasksInNotes,

@@ -26,6 +26,15 @@
           <span class="material-symbols-outlined text-[18px]">checklist</span>
           <span class="font-label-md text-label-md">View All Tasks</span>
         </router-link>
+        <button
+          v-if="archivedCount > 0"
+          type="button"
+          @click="showArchived = !showArchived"
+          class="px-md py-2 border border-outline-variant text-on-surface-variant rounded flex items-center gap-2 hover:bg-surface-container transition-colors"
+        >
+          <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+          <span class="font-label-md text-label-md">{{ showArchived ? 'Ukryj archiwum' : 'Archiwum' }} ({{ archivedCount }})</span>
+        </button>
         <button @click="openNewNoteModal" class="px-md py-2 bg-secondary text-on-secondary rounded flex items-center gap-2 hover:bg-secondary-fixed transition-colors">
           <span class="material-symbols-outlined text-[18px]">add</span>
           <span class="font-label-md text-label-md">Create Note</span>
@@ -42,19 +51,54 @@
     <!-- Bento Grid Layout for Notes -->
     <div v-else class="grid grid-cols-12 gap-gutter">
       <!-- Standard Note Cards -->
-      <div v-for="note in filteredNotes" :key="note.id" 
+      <div v-for="note in sortedActiveNotes" :key="note.id" 
            @click="openEditNoteModal(note)"
-           class="col-span-12 md:col-span-6 lg:col-span-4 group bg-surface-container-lowest border border-outline-variant rounded-xl p-lg flex flex-col note-card transition-all duration-200 hover:bg-surface-container-low cursor-pointer relative">
-        
+           :class="[
+             'col-span-12 md:col-span-6 lg:col-span-4 group rounded-xl p-lg flex flex-col note-card transition-all duration-200 cursor-pointer relative border',
+             note.pinned
+               ? 'bg-secondary-container/55 border-secondary/55 shadow-md shadow-secondary/20 ring-1 ring-secondary/30 hover:bg-secondary-container/65 hover:border-secondary/70'
+               : 'bg-surface-container-lowest border-outline-variant hover:bg-surface-container-low'
+           ]">
+        <div
+          v-if="note.pinned"
+          class="pointer-events-none absolute inset-y-3 left-0 w-1.5 rounded-full bg-secondary"
+          aria-hidden="true"
+        />
+
         <button 
-          @click.stop="confirmDeleteNote(note)" 
-          class="absolute top-4 right-4 p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
-          title="Delete Note"
+          type="button"
+          @click.stop="togglePin(note)" 
+          class="absolute top-4 right-14 p-1.5 rounded-full transition-all duration-200 z-10"
+          :class="note.pinned
+            ? 'opacity-100 bg-secondary text-on-secondary shadow-sm hover:bg-secondary-fixed hover:opacity-95'
+            : 'opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-secondary hover:bg-secondary-container/40'"
+          :title="note.pinned ? 'Odepnij' : 'Przypnij'"
         >
-          <span class="material-symbols-outlined text-[20px]">delete</span>
+          <span class="material-symbols-outlined text-[20px]" :style="note.pinned ? { fontVariationSettings: '\'FILL\' 1' } : undefined">push_pin</span>
+        </button>
+        <button 
+          type="button"
+          @click.stop="confirmArchiveNote(note)" 
+          class="absolute top-4 right-4 p-1.5 text-on-surface-variant hover:text-amber-700 hover:bg-amber-500/15 rounded-full transition-all duration-200 z-10"
+          :class="note.pinned ? 'opacity-100 bg-surface-container-high/90' : 'opacity-0 group-hover:opacity-100'"
+          title="Archiwizuj"
+        >
+          <span class="material-symbols-outlined text-[20px]">archive</span>
         </button>
 
-        <div class="mb-md flex gap-sm pr-10" v-if="getJiraKeys(note.title).length > 0">
+        <div
+          v-if="note.pinned"
+          class="mb-sm flex items-center gap-1.5 self-start rounded-full bg-secondary/90 text-on-secondary px-2.5 py-1 font-label-sm text-label-sm shadow-sm"
+        >
+          <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1">push_pin</span>
+          <span>Przypięta</span>
+        </div>
+
+        <div
+          class="mb-md flex gap-sm"
+          :class="note.pinned ? 'pr-[5.5rem]' : 'pr-10'"
+          v-if="getJiraKeys(note.title).length > 0"
+        >
           <span v-for="key in getJiraKeys(note.title)" :key="key" 
                 class="font-label-md text-label-md px-2 py-0.5 rounded flex items-center gap-1"
                 :class="getJiraStatusClass(key)">
@@ -62,11 +106,21 @@
             <span class="text-[10px] uppercase ml-1">{{ getJiraStatusText(key) }}</span>
           </span>
         </div>
-        <h3 class="font-headline-md text-headline-md text-on-surface mb-sm">{{ cleanTitle(note.title) }}</h3>
-        <p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+        <div class="flex items-start gap-sm mb-sm pr-14 min-w-0">
+          <h3
+            class="font-headline-md text-headline-md flex-1 min-w-0"
+            :class="note.pinned ? 'text-secondary' : 'text-on-surface'"
+          >
+            {{ cleanTitle(note.title) }}
+          </h3>
+        </div>
+        <p class="font-body-sm text-body-sm line-clamp-2" :class="note.pinned ? 'text-on-secondary-container' : 'text-on-surface-variant'">
           Project: {{ note.projectId }}
         </p>
-        <div class="mt-md pt-md border-t border-outline-variant flex items-center justify-between gap-sm text-on-surface-variant font-body-sm text-body-sm">
+        <div
+          class="mt-md pt-md border-t flex items-center justify-between gap-sm font-body-sm text-body-sm"
+          :class="note.pinned ? 'border-secondary/25 text-secondary' : 'border-outline-variant text-on-surface-variant'"
+        >
           <div class="flex items-center gap-1">
             <span class="material-symbols-outlined text-[16px]">schedule</span>
             <span>{{ new Date(note.updatedAt).toLocaleDateString() }}</span>
@@ -87,6 +141,52 @@
           Start Scratchpad
         </button>
       </div>
+
+      <!-- Archived notes -->
+      <template v-if="showArchived && sortedArchivedNotes.length > 0">
+        <div class="col-span-12 mt-lg pt-lg border-t border-outline-variant">
+          <h2 class="font-headline-sm text-headline-sm text-on-surface-variant mb-md flex items-center gap-2">
+            <span class="material-symbols-outlined text-[22px]">inventory_2</span>
+            Archiwum
+          </h2>
+          <div class="grid grid-cols-12 gap-gutter">
+            <div
+              v-for="note in sortedArchivedNotes"
+              :key="'archived-' + note.id"
+              @click="openEditNoteModal(note)"
+              class="col-span-12 md:col-span-6 lg:col-span-4 group bg-surface-container-high/40 border border-dashed border-outline-variant rounded-xl p-lg flex flex-col cursor-pointer relative hover:bg-surface-container-high/60 transition-all"
+            >
+              <div class="absolute top-4 right-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  type="button"
+                  @click.stop="restoreNote(note)"
+                  class="p-1.5 text-on-surface-variant hover:text-secondary hover:bg-secondary-container/30 rounded-full"
+                  title="Przywróć"
+                >
+                  <span class="material-symbols-outlined text-[20px]">unarchive</span>
+                </button>
+                <button
+                  type="button"
+                  @click.stop="confirmPermanentDelete(note)"
+                  class="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full"
+                  title="Usuń na stałe"
+                >
+                  <span class="material-symbols-outlined text-[20px]">delete_forever</span>
+                </button>
+              </div>
+              <span class="inline-flex items-center gap-1 self-start px-2 py-0.5 rounded text-[11px] font-label-md uppercase tracking-wide bg-on-surface/10 text-on-surface-variant mb-sm">Zarchiwizowana</span>
+              <h3 class="font-headline-md text-headline-md text-on-surface mb-sm pr-16">{{ cleanTitle(note.title) }}</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+                Project: {{ note.projectId }}
+              </p>
+              <div class="mt-md pt-md border-t border-outline-variant/60 flex items-center gap-1 text-on-surface-variant font-body-sm text-body-sm">
+                <span class="material-symbols-outlined text-[16px]">schedule</span>
+                <span>{{ new Date(note.updatedAt).toLocaleDateString() }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
       
       <!-- Large Table-style note entry -->
       <div class="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden mt-xl">
@@ -133,7 +233,17 @@
             />
           </div>
           <div class="flex items-center gap-2">
-            <button @click="closeModal" class="p-1.5 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-highest transition-colors">
+            <button
+              v-if="activeNoteId"
+              type="button"
+              @click="activeNotePinned = !activeNotePinned"
+              class="p-2 rounded-full transition-colors"
+              :class="activeNotePinned ? 'text-secondary bg-secondary-container/40' : 'text-on-surface-variant hover:bg-surface-container-highest'"
+              :title="activeNotePinned ? 'Odepnij' : 'Przypnij'"
+            >
+              <span class="material-symbols-outlined text-[22px]" :style="activeNotePinned ? { fontVariationSettings: '\'FILL\' 1' } : undefined">push_pin</span>
+            </button>
+            <button type="button" @click="closeModal" class="p-1.5 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-container-highest transition-colors">
               <span class="material-symbols-outlined text-[24px]">close</span>
             </button>
           </div>
@@ -211,6 +321,7 @@
 
 <script setup lang="ts">
 import { onMounted, computed, ref, nextTick } from 'vue';
+import type { NoteListItem } from '../types/api';
 import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
 import { useProjectsStore } from '../stores/projectsStore';
@@ -231,20 +342,42 @@ const editorRef = ref<HTMLTextAreaElement | null>(null);
 const saving = ref(false);
 const isSourceMode = ref(false);
 const searchQuery = ref('');
+const showArchived = ref(true);
+const activeNotePinned = ref(false);
 
-const filteredNotes = computed(() => {
-  if (!searchQuery.value.trim()) return notesStore.notes;
-  const query = searchQuery.value.toLowerCase();
-  return notesStore.notes.filter(note => 
-    note.title.toLowerCase().includes(query) ||
-    (note as any).body?.toLowerCase().includes(query)
-  );
+function noteMatchesSearch(note: NoteListItem, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase();
+  return note.title.toLowerCase().includes(q) || (note.body?.toLowerCase().includes(q) ?? false);
+}
+
+function sortNotesForOverview(list: NoteListItem[]): NoteListItem[] {
+  return [...list].sort((a, b) => {
+    const ar = !!a.archived;
+    const br = !!b.archived;
+    if (ar !== br) return ar ? 1 : -1;
+    if (!ar && !br && !!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+}
+
+const sortedActiveNotes = computed(() => {
+  const list = notesStore.notes.filter(n => !n.archived && noteMatchesSearch(n, searchQuery.value));
+  return sortNotesForOverview(list);
 });
+
+const sortedArchivedNotes = computed(() => {
+  const list = notesStore.notes.filter(n => !!n.archived && noteMatchesSearch(n, searchQuery.value));
+  return sortNotesForOverview(list);
+});
+
+const archivedCount = computed(() => notesStore.notes.filter(n => !!n.archived).length);
 
 function openNewNoteModal() {
   activeNoteId.value = null;
   activeNoteTitle.value = '';
   activeNoteBody.value = '';
+  activeNotePinned.value = false;
   isModalOpen.value = true;
   nextTick(() => {
     if (editorRef.value) {
@@ -253,10 +386,11 @@ function openNewNoteModal() {
   });
 }
 
-async function openEditNoteModal(note: any) {
+async function openEditNoteModal(note: NoteListItem) {
   activeNoteId.value = note.id;
   activeNoteTitle.value = note.title;
   activeNoteBody.value = 'Loading...';
+  activeNotePinned.value = !!note.pinned;
   isModalOpen.value = true;
 
   try {
@@ -264,6 +398,7 @@ async function openEditNoteModal(note: any) {
     if (notesStore.currentNote) {
       activeNoteTitle.value = notesStore.currentNote.title;
       activeNoteBody.value = notesStore.currentNote.body || '';
+      activeNotePinned.value = !!notesStore.currentNote.pinned;
     }
   } catch (err) {
     console.error("Failed to load note detail", err);
@@ -349,7 +484,9 @@ async function saveNote(close: boolean = true) {
   try {
     if (activeNoteId.value) {
       console.log("Updating existing note:", activeNoteId.value);
-      await notesStore.updateNote(activeNoteId.value, activeNoteBody.value, activeNoteTitle.value);
+      await notesStore.updateNote(activeNoteId.value, activeNoteBody.value, activeNoteTitle.value, {
+        pinned: activeNotePinned.value,
+      });
     } else {
       console.log("Creating new note. Current projects:", projectsStore.projects);
       let project = projectsStore.projects.find(p => p.title === 'Scratchpad' || p.slug === 'scratchpad');
@@ -373,16 +510,56 @@ async function saveNote(close: boolean = true) {
   }
 }
 
-async function confirmDeleteNote(note: any) {
-  console.log("Confirm delete for note:", note);
-  if (confirm(`Are you sure you want to delete "${cleanTitle(note.title)}"?`)) {
-    try {
-      console.log("Deleting note:", note.id);
-      await notesStore.deleteNote(note.id);
-    } catch (err) {
-      console.error("Delete note failed:", err);
-      alert("Failed to delete note.");
+async function togglePin(note: NoteListItem) {
+  try {
+    await notesStore.patchNoteMetadata(note.id, { pinned: !note.pinned });
+  } catch (err) {
+    console.error('togglePin failed:', err);
+    alert('Nie udało się zmienić przypięcia.');
+  }
+}
+
+async function confirmArchiveNote(note: NoteListItem) {
+  if (
+    !confirm(
+      `Przenieść do archiwum notatkę „${cleanTitle(note.title)}”? Możesz ją później przywrócić lub usunąć na stałe.`,
+    )
+  ) {
+    return;
+  }
+  try {
+    await notesStore.patchNoteMetadata(note.id, { archived: true });
+  } catch (err) {
+    console.error('Archive note failed:', err);
+    alert('Nie udało się zarchiwizować notatki.');
+  }
+}
+
+async function restoreNote(note: NoteListItem) {
+  try {
+    await notesStore.patchNoteMetadata(note.id, { archived: false });
+  } catch (err) {
+    console.error('Restore note failed:', err);
+    alert('Nie udało się przywrócić notatki.');
+  }
+}
+
+async function confirmPermanentDelete(note: NoteListItem) {
+  if (
+    !confirm(
+      `Na stałe usunąć „${cleanTitle(note.title)}”? Tej operacji nie można cofnąć.`,
+    )
+  ) {
+    return;
+  }
+  try {
+    await notesStore.deleteNote(note.id);
+    if (activeNoteId.value === note.id) {
+      closeModal();
     }
+  } catch (err) {
+    console.error('Delete note failed:', err);
+    alert('Nie udało się usunąć notatki.');
   }
 }
 
@@ -413,6 +590,7 @@ function getJiraStatusClass(key: string): string {
 const referencedJiraTasks = computed(() => {
   const keys = new Set<string>();
   notesStore.notes.forEach(note => {
+    if (note.archived) return;
     getJiraKeys(note.title).forEach(k => keys.add(k));
   });
   return jiraStore.issues.filter(i => keys.has(i.key));
@@ -423,7 +601,7 @@ onMounted(async () => {
     await projectsStore.fetchProjects();
     await notesStore.fetchAllNotes();
     // Discover Jira keys in fetched notes
-    await notesStore.discoverJiraTasksInNotes(notesStore.notes);
+    await notesStore.discoverJiraTasksInNotes(notesStore.notes.filter(n => !n.archived));
 
     if (route.query.openNote) {
       const noteToOpen = notesStore.notes.find((n: any) => n.id === route.query.openNote);

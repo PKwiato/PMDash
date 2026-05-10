@@ -2,7 +2,8 @@ import { ListAllNoteTasks } from '../../../application/use-cases/notes/ListAllNo
 import { DeleteNote } from '../../../application/use-cases/notes/DeleteNote';
 import { GetNote } from '../../../application/use-cases/notes/GetNote';
 import { ListAllNotes } from '../../../application/use-cases/notes/ListAllNotes';
-import { UpdateNote } from '../../../application/use-cases/notes/UpdateNote';
+import { PatchNoteMetadata } from '../../../application/use-cases/notes/PatchNoteMetadata';
+import { UpdateNote, type UpdateNoteDTO } from '../../../application/use-cases/notes/UpdateNote';
 import { NoteNotFoundError } from '../../../domain/errors/NoteNotFoundError';
 import type { INoteRepository } from '../../../domain/ports/INoteRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
@@ -18,6 +19,7 @@ export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteR
   const listAllNoteTasks = new ListAllNoteTasks(noteRepo);
   const getNote = new GetNote(noteRepo);
   const updateNote = new UpdateNote(noteRepo, projectRepo);
+  const patchNoteMetadata = new PatchNoteMetadata(noteRepo, projectRepo);
   const deleteNote = new DeleteNote(noteRepo);
 
   r.get('/tasks', async (_req, res, next) => {
@@ -49,13 +51,63 @@ export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteR
 
   r.put('/:id', async (req, res, next) => {
     try {
-      const { title, body } = req.body as { title?: string; body?: string };
+      const { title, body, pinned, archived } = req.body as {
+        title?: string;
+        body?: string;
+        pinned?: unknown;
+        archived?: unknown;
+      };
       if (typeof body !== 'string') {
         res.status(400).json({ error: 'body is required' });
         return;
       }
-      const note = await updateNote.execute({ id: req.params.id, title, body });
+      const dto: UpdateNoteDTO = { id: req.params.id, title, body };
+      if (pinned !== undefined) {
+        if (typeof pinned !== 'boolean') {
+          res.status(400).json({ error: 'pinned must be a boolean' });
+          return;
+        }
+        dto.pinned = pinned;
+      }
+      if (archived !== undefined) {
+        if (typeof archived !== 'boolean') {
+          res.status(400).json({ error: 'archived must be a boolean' });
+          return;
+        }
+        dto.archived = archived;
+      }
+      const note = await updateNote.execute(dto);
       res.json({ ...noteToListJson(note), body: typeof body === 'string' ? body : '' });
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  r.patch('/:id', async (req, res, next) => {
+    try {
+      const { pinned, archived } = req.body as { pinned?: unknown; archived?: unknown };
+      if (pinned === undefined && archived === undefined) {
+        res.status(400).json({ error: 'pinned or archived is required' });
+        return;
+      }
+      const dto: { id: string; pinned?: boolean; archived?: boolean } = { id: req.params.id };
+      if (pinned !== undefined) {
+        if (typeof pinned !== 'boolean') {
+          res.status(400).json({ error: 'pinned must be a boolean' });
+          return;
+        }
+        dto.pinned = pinned;
+      }
+      if (archived !== undefined) {
+        if (typeof archived !== 'boolean') {
+          res.status(400).json({ error: 'archived must be a boolean' });
+          return;
+        }
+        dto.archived = archived;
+      }
+      const note = await patchNoteMetadata.execute(dto);
+      const body = await noteRepo.readBody(note.id);
+      res.json({ ...noteToListJson(note), body: body ?? '' });
     } catch (e) {
       next(e);
     }
