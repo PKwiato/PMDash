@@ -161,7 +161,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import axios from 'axios';
+import { api } from '../api/client';
 import { useJiraStore } from '../stores/jiraStore';
 import { useVaultStore } from '../stores/vaultStore';
 import { reactive } from 'vue';
@@ -214,7 +214,7 @@ watch(boardSearchQuery, (newQuery) => {
 async function fetchBoards() {
   loadingBoards.value = true;
   try {
-    const response = await axios.get<Board[]>('/api/jira/boards');
+    const response = await api.get<Board[]>('/jira/boards');
     boards.value = response.data;
   } catch (err) {
     console.error('Error fetching boards:', err);

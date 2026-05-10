@@ -3,6 +3,7 @@ import { DeleteNote } from '../../../application/use-cases/notes/DeleteNote';
 import { GetNote } from '../../../application/use-cases/notes/GetNote';
 import { ListAllNotes } from '../../../application/use-cases/notes/ListAllNotes';
 import { UpdateNote } from '../../../application/use-cases/notes/UpdateNote';
+import { NoteNotFoundError } from '../../../domain/errors/NoteNotFoundError';
 import type { INoteRepository } from '../../../domain/ports/INoteRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
 import { noteToListJson } from '../serialization/noteDto';
@@ -75,7 +76,7 @@ export function noteByIdRouter(projectRepo: IProjectRepository, noteRepo: INoteR
         const id = req.params.id;
         const dir = await noteRepo.getNoteAttachmentDir(id);
         if (!dir) {
-          cb(new Error('Note not found'), '');
+          cb(new NoteNotFoundError(id), '');
           return;
         }
         await fs.ensureDir(dir);

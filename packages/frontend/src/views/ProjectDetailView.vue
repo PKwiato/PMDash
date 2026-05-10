@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import axios, { isAxiosError } from 'axios';
+import { isAxiosError } from 'axios';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { api, getApiErrorMessage } from '../api/client';
 import type {
   JiraBoardListItem,
   JiraIssueDto,
@@ -9,6 +10,7 @@ import type {
   NoteListItem,
   ProjectDto,
 } from '../types/api';
+import { uniqueJiraKeysFromString } from '../utils/jiraKeys';
 
 const route = useRoute();
 const projectId = computed(() => String(route.params.id));
@@ -40,7 +42,7 @@ function markdownForJiraIssue(i: JiraIssueDto): string {
 async function loadJiraBoards() {
   jiraError.value = null;
   try {
-    const { data } = await axios.get<JiraBoardListItem[]>('/api/jira/boards');
+    const { data } = await api.get<JiraBoardListItem[]>('/jira/boards');
     jiraBoards.value = data;
     jiraConfigured.value = true;
     const preferred = project.value?.jiraBoardId ?? null;
@@ -52,14 +54,14 @@ async function loadJiraBoards() {
       jiraBoardId.value = null;
     }
     await loadJiraIssues();
-  } catch (e) {
+  } catch (e: unknown) {
     jiraIssues.value = [];
     if (isAxiosError(e) && e.response?.status === 503) {
       jiraConfigured.value = false;
       jiraBoards.value = [];
       jiraBoardId.value = null;
     } else {
-      jiraError.value = e instanceof Error ? e.message : String(e);
+      jiraError.value = getApiErrorMessage(e, 'Failed to load Jira boards');
     }
   } finally {
     jiraConfigChecked.value = true;
@@ -74,13 +76,11 @@ async function loadJiraIssues() {
   jiraIssuesLoading.value = true;
   jiraError.value = null;
   try {
-    const { data } = await axios.get<JiraIssueDto[]>(
-      `/api/jira/boards/${jiraBoardId.value}/issues`,
-    );
+    const { data } = await api.get<JiraIssueDto[]>(`/jira/boards/${jiraBoardId.value}/issues`);
     jiraIssues.value = data;
-  } catch (e) {
+  } catch (e: unknown) {
     jiraIssues.value = [];
-    jiraError.value = e instanceof Error ? e.message : String(e);
+    jiraError.value = getApiErrorMessage(e, 'Failed to load Jira issues');
   } finally {
     jiraIssuesLoading.value = false;
   }
@@ -94,15 +94,15 @@ async function addJiraIssueToNotes(i: JiraIssueDto) {
       editBody.value += block;
       await saveNote();
     } else {
-      const { data } = await axios.post<NoteListItem>(`/api/projects/${projectId.value}/notes`, {
+      const { data } = await api.post<NoteListItem>(`/projects/${projectId.value}/notes`, {
         title: `Jira — ${i.key}: ${i.summary}`,
         body: `## Treść\n\n${block}`,
       });
       await loadNotes();
       await selectNote(data.id);
     }
-  } catch (e) {
-    jiraError.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    jiraError.value = getApiErrorMessage(e, 'Failed to add Jira issue to notes');
   }
 }
 
@@ -111,14 +111,14 @@ async function syncTrackedIssues() {
     trackedIssues.value = [];
     return;
   }
-  const keys = [...new Set(editBody.value.match(/[A-Z]+-[0-9]+/g) || [])];
+  const keys = uniqueJiraKeysFromString(editBody.value);
   if (keys.length === 0) {
     trackedIssues.value = [];
     return;
   }
   trackingLoading.value = true;
   try {
-    const { data } = await axios.post<JiraIssueDto[]>('/api/jira/issues/bulk', { keys });
+    const { data } = await api.post<JiraIssueDto[]>('/jira/issues/bulk', { keys });
     trackedIssues.value = data;
   } catch (e) {
     console.error('Failed to sync issues:', e);
@@ -134,12 +134,12 @@ watch(editBody, () => {
 });
 
 async function loadProject() {
-  const { data } = await axios.get<ProjectDto>(`/api/projects/${projectId.value}`);
+  const { data } = await api.get<ProjectDto>(`/projects/${projectId.value}`);
   project.value = data;
 }
 
 async function loadNotes() {
-  const { data } = await axios.get<NoteListItem[]>(`/api/projects/${projectId.value}/notes`);
+  const { data } = await api.get<NoteListItem[]>(`/projects/${projectId.value}/notes`);
   notes.value = data;
 }
 
@@ -153,8 +153,8 @@ async function loadAll() {
     await loadProject();
     await loadNotes();
     await loadJiraBoards();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to load project');
     project.value = null;
   }
 }
@@ -163,12 +163,12 @@ async function selectNote(id: string) {
   selectedId.value = id;
   error.value = null;
   try {
-    const { data } = await axios.get<NoteDetail>(`/api/notes/${id}`);
+    const { data } = await api.get<NoteDetail>(`/notes/${id}`);
     editTitle.value = data.title;
     editBody.value = data.body;
     await syncTrackedIssues();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to load note');
   }
 }
 
@@ -177,13 +177,13 @@ async function saveNote() {
   saving.value = true;
   error.value = null;
   try {
-    await axios.put(`/api/notes/${selectedId.value}`, {
+    await api.put(`/notes/${selectedId.value}`, {
       title: editTitle.value,
       body: editBody.value,
     });
     await loadNotes();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to save note');
   } finally {
     saving.value = false;
   }
@@ -194,13 +194,13 @@ async function deleteNote() {
   if (!confirm('Usunąć tę notatkę?')) return;
   error.value = null;
   try {
-    await axios.delete(`/api/notes/${selectedId.value}`);
+    await api.delete(`/notes/${selectedId.value}`);
     selectedId.value = null;
     editTitle.value = '';
     editBody.value = '';
     await loadNotes();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to delete note');
   }
 }
 
@@ -209,14 +209,14 @@ async function addNote() {
   if (!title?.trim()) return;
   error.value = null;
   try {
-    const { data } = await axios.post<NoteListItem>(`/api/projects/${projectId.value}/notes`, {
+    const { data } = await api.post<NoteListItem>(`/projects/${projectId.value}/notes`, {
       title: title.trim(),
       body: '## Treść\n\n',
     });
     await loadNotes();
     await selectNote(data.id);
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to create note');
   }
 }
 

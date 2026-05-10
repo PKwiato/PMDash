@@ -179,11 +179,10 @@
           <!-- Editor Area -->
           <div class="flex-1 relative bg-surface-container flex flex-col overflow-hidden">
             <template v-if="!isSourceMode">
-              <MilkdownWrapper 
-                v-if="isModalOpen" 
+              <MilkdownWrapper
+                v-if="isModalOpen"
                 :modelValue="activeNoteBody"
                 @update:modelValue="activeNoteBody = $event"
-                :noteId="activeNoteId"
                 @uploadAttachment="handleUploadAttachment"
               />
             </template>
@@ -308,7 +307,11 @@ function format(type: string) {
   document.execCommand('insertText', false, textToInsert);
 }
 
-async function handleUploadAttachment(file: File, resolve: (url: string) => void, reject: (err: any) => void) {
+async function handleUploadAttachment(
+  file: File,
+  resolve: (url: string) => void,
+  reject: (err: unknown) => void,
+) {
   if (!activeNoteId.value) {
     if (!activeNoteTitle.value.trim()) {
       alert("Please enter a title before uploading images.");

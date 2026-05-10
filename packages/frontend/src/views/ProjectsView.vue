@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import axios from 'axios';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { api, getApiErrorMessage } from '../api/client';
 import type { ProjectDto } from '../types/api';
 
 const router = useRouter();
@@ -14,10 +14,10 @@ const newDescription = ref('');
 async function load() {
   error.value = null;
   try {
-    const { data } = await axios.get<ProjectDto[]>('/api/projects');
+    const { data } = await api.get<ProjectDto[]>('/projects');
     projects.value = data;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to load projects');
   }
 }
 
@@ -26,7 +26,7 @@ async function createProject() {
   creating.value = true;
   error.value = null;
   try {
-    const { data } = await axios.post<ProjectDto>('/api/projects', {
+    const { data } = await api.post<ProjectDto>('/projects', {
       title: newTitle.value.trim(),
       description: newDescription.value.trim() || undefined,
     });
@@ -34,8 +34,8 @@ async function createProject() {
     newDescription.value = '';
     await load();
     await router.push(`/projects/${data.id}`);
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
+  } catch (e: unknown) {
+    error.value = getApiErrorMessage(e, 'Failed to create project');
   } finally {
     creating.value = false;
   }

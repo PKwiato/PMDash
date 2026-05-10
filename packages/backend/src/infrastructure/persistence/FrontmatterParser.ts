@@ -2,7 +2,6 @@ import matter from 'gray-matter';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs-extra';
 import { Tag } from '../../domain/value-objects/Tag';
-import { TagCategory } from '../../domain/value-objects/Tag';
 
 export class FrontmatterParser {
   async parseFile(filePath: string): Promise<Record<string, unknown>> {
