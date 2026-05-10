@@ -160,27 +160,30 @@ export class JiraApiAdapter implements IJiraAdapter {
 
     // 2. For each issue, fetch its worklogs
     for (const issue of data.issues) {
-      const wlData = await this.client.get<{ worklogs: Array<Record<string, any>> }>(
+      const wlData = await this.client.get<{ worklogs: Array<Record<string, unknown>> }>(
         `/issue/${issue.key}/worklog`,
         {},
         'api'
       );
 
       for (const w of wlData.worklogs) {
-        const startedDate = w.started.split('T')[0];
-        if (startedDate >= startingAt && startedDate <= endingAt) {
-          if (!targetUserIds || targetUserIds.has(w.author.accountId)) {
-            out.push({
-              id: Number(w.id),
-              issueKey: issue.key,
-              userAccountId: w.author.accountId,
-              userName: w.author.displayName,
-              date: startedDate,
-              timeSpentSeconds: w.timeSpentSeconds,
-              description: w.comment || '',
-              started: w.started,
-            });
-          }
+        const started = String(w.started ?? '');
+        const startedDate = started.split('T')[0] ?? '';
+        const author = w.author as { accountId?: string; displayName?: string } | undefined;
+        const accountId = author?.accountId ?? '';
+        if (!startedDate || startedDate < startingAt || startedDate > endingAt) continue;
+        if (!targetUserIds || targetUserIds.has(accountId)) {
+          const comment = w.comment;
+          out.push({
+            id: Number(w.id),
+            issueKey: issue.key,
+            userAccountId: accountId,
+            userName: author?.displayName ?? '',
+            date: startedDate,
+            timeSpentSeconds: Number(w.timeSpentSeconds ?? 0),
+            description: typeof comment === 'string' ? comment : '',
+            started,
+          });
         }
       }
     }
@@ -192,7 +195,9 @@ export class JiraApiAdapter implements IJiraAdapter {
 
     try {
       // 1. Get board name
-      const board = await this.client.get<any>(`/board/${boardId}`, {}, 'agile').catch(() => ({ name: 'Unknown' }));
+      const board = await this.client
+        .get<{ name?: string }>(`/board/${boardId}`, {}, 'agile')
+        .catch(() => ({ name: 'Unknown' }));
       const boardName = board.name || 'Unknown';
       
       // 2. Try group search (Collector, Base, Team Base, etc.)
@@ -206,14 +211,28 @@ export class JiraApiAdapter implements IJiraAdapter {
       ];
       for (const gn of groupNames) {
         try {
-          const res = await this.client.get<{ values: any[] }>('/group/member', { groupname: gn, maxResults: '50' }, 'api');
+          const res = await this.client.get<{
+            values?: Array<{
+              accountId?: string;
+              displayName?: string;
+              avatarUrls?: Record<string, string>;
+            }>;
+          }>('/group/member', { groupname: gn, maxResults: '50' }, 'api');
           if (res.values && res.values.length > 0) {
             for (const u of res.values) {
-              if (u.accountId) userMap.set(u.accountId, { accountId: u.accountId, displayName: u.displayName, avatarUrl: u.avatarUrls?.['32x32'] });
+              if (u.accountId) {
+                userMap.set(u.accountId, {
+                  accountId: u.accountId,
+                  displayName: u.displayName ?? '',
+                  avatarUrl: u.avatarUrls?.['32x32'],
+                });
+              }
             }
             break;
           }
-        } catch (e) {}
+        } catch {
+          void 0;
+        }
       }
 
       // 3. Activity Discovery removed as per user request to be group-strict

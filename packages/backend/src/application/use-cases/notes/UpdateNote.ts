@@ -24,7 +24,7 @@ export class UpdateNote {
     const project = await this.projectRepo.findById(note.projectId);
     if (!project) throw new ProjectNotFoundError(note.projectId);
 
-    let next: Note =
+    const next: Note =
       dto.title != null && dto.title !== note.title ? note.withTitle(dto.title) : note.bumpUpdated();
 
     const tags = AutoTagBuilder.forNote(next, project.slug);

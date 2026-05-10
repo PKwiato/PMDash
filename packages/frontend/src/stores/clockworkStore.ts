@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
+import { api, getApiErrorMessage } from '../api/client';
 
 export interface JiraUser {
   accountId: string;
@@ -20,8 +20,6 @@ export interface UserAnalysis {
   inconsistencies: WorklogInconsistency[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
 export const useClockworkStore = defineStore('clockwork', {
   state: () => ({
     analysis: [] as UserAnalysis[],
@@ -34,12 +32,12 @@ export const useClockworkStore = defineStore('clockwork', {
       this.loading = true;
       this.error = null;
       try {
-        const response = await axios.get(`${API_BASE}/clockwork/analysis`, {
-          params: { boardId, dateFrom, dateTo }
+        const response = await api.get<UserAnalysis[]>('/clockwork/analysis', {
+          params: { boardId, dateFrom, dateTo },
         });
         this.analysis = response.data;
-      } catch (err: any) {
-        this.error = err.response?.data?.error || 'Failed to fetch analysis';
+      } catch (err: unknown) {
+        this.error = getApiErrorMessage(err, 'Failed to fetch analysis');
         console.error('Error fetching clockwork analysis:', err);
       } finally {
         this.loading = false;

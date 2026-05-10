@@ -1,36 +1,36 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
 import type { JiraIssueDto } from '../types/api';
-
-const API_BASE = '/api/jira';
+import { api, getApiErrorMessage } from '../api/client';
 
 export const useJiraStore = defineStore('jira', () => {
   const defaultBoardId = ref<number | null>(null);
   const boardName = ref<string>('Loading...');
   const activeMode = ref<'production' | 'test'>('production');
   const issues = ref<JiraIssueDto[]>([]);
-  const boards = ref<any[]>([]);
+  const boards = ref<{ id: number; name: string }[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   async function fetchConfig() {
     try {
-      const response = await axios.get<{ defaultBoardId: number, activeMode: 'production' | 'test' }>(`${API_BASE}/config`);
+      const response = await api.get<{ defaultBoardId: number; activeMode: 'production' | 'test' }>(
+        '/jira/config',
+      );
       defaultBoardId.value = response.data.defaultBoardId;
       activeMode.value = response.data.activeMode;
-      
+
       if (defaultBoardId.value) {
         await fetchBoardName(defaultBoardId.value);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching Jira config:', err);
     }
   }
 
   async function fetchBoardName(id: number) {
     try {
-      const response = await axios.get<any[]>(`${API_BASE}/boards`);
+      const response = await api.get<{ id: number; name: string }[]>('/jira/boards');
       boards.value = response.data;
       const board = response.data.find(b => b.id === id);
       if (board) {
@@ -38,7 +38,7 @@ export const useJiraStore = defineStore('jira', () => {
       } else {
         boardName.value = `Board #${id}`;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching board name:', err);
       boardName.value = `Board #${id}`;
     }
@@ -47,16 +47,16 @@ export const useJiraStore = defineStore('jira', () => {
   async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
-    
+
     loading.value = true;
     error.value = null;
     try {
-      const response = await axios.get<JiraIssueDto[]>(`${API_BASE}/boards/${id}/issues`, {
-        params: { activeSprintOnly }
+      const response = await api.get<JiraIssueDto[]>(`/jira/boards/${id}/issues`, {
+        params: { activeSprintOnly },
       });
       issues.value = response.data;
-    } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to fetch issues';
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to fetch issues');
       console.error('Error fetching Jira issues:', err);
     } finally {
       loading.value = false;
@@ -65,18 +65,17 @@ export const useJiraStore = defineStore('jira', () => {
 
   async function fetchIssuesByKeys(keys: string[]) {
     if (keys.length === 0) return [];
-    
+
     try {
-      const response = await axios.post<JiraIssueDto[]>(`${API_BASE}/issues/bulk`, { keys });
-      
-      // Update existing issues or add new ones
+      const response = await api.post<JiraIssueDto[]>('/jira/issues/bulk', { keys });
+
       const newIssues = response.data;
       const issueMap = new Map(issues.value.map(i => [i.key, i]));
       newIssues.forEach(ni => issueMap.set(ni.key, ni));
       issues.value = Array.from(issueMap.values());
-      
+
       return newIssues;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching bulk Jira issues:', err);
       return [];
     }
@@ -84,12 +83,12 @@ export const useJiraStore = defineStore('jira', () => {
 
   async function updateConfig(newBoardId: number) {
     try {
-      const response = await axios.patch<{ defaultBoardId: number }>(`${API_BASE}/config`, {
-        defaultBoardId: newBoardId
+      const response = await api.patch<{ defaultBoardId: number }>('/jira/config', {
+        defaultBoardId: newBoardId,
       });
       defaultBoardId.value = response.data.defaultBoardId;
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error updating Jira config:', err);
       return false;
     }
@@ -106,6 +105,6 @@ export const useJiraStore = defineStore('jira', () => {
     fetchConfig,
     fetchIssuesForBoard,
     fetchIssuesByKeys,
-    updateConfig
+    updateConfig,
   };
 });

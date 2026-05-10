@@ -1,9 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
 import type { ProjectDto } from '../types/api';
-
-const API_BASE = '/api/projects';
+import { api, getApiErrorMessage } from '../api/client';
 
 export const useProjectsStore = defineStore('projects', () => {
   const projects = ref<ProjectDto[]>([]);
@@ -14,10 +12,10 @@ export const useProjectsStore = defineStore('projects', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await axios.get<ProjectDto[]>(API_BASE);
+      const response = await api.get<ProjectDto[]>('/projects');
       projects.value = response.data;
-    } catch (err: any) {
-      error.value = err.message || 'Failed to fetch projects';
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to fetch projects');
       console.error('Error fetching projects:', err);
     } finally {
       loading.value = false;
@@ -25,13 +23,18 @@ export const useProjectsStore = defineStore('projects', () => {
   }
 
   async function createProject(title: string, description?: string, jiraProjectKey?: string) {
+    loading.value = true;
+    error.value = null;
     try {
-      const response = await axios.post<ProjectDto>(API_BASE, { title, description, jiraProjectKey });
+      const response = await api.post<ProjectDto>('/projects', { title, description, jiraProjectKey });
       projects.value.push(response.data);
       return response.data;
-    } catch (err) {
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to create project');
       console.error('Error creating project:', err);
       throw err;
+    } finally {
+      loading.value = false;
     }
   }
 
@@ -40,6 +43,6 @@ export const useProjectsStore = defineStore('projects', () => {
     loading,
     error,
     fetchProjects,
-    createProject
+    createProject,
   };
 });

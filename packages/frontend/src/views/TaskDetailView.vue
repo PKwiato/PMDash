@@ -236,10 +236,11 @@
         <!-- Rich Text Editor Container -->
         <div class="flex-1 flex flex-col p-4 space-y-4 overflow-hidden">
           <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden focus-within:border-teal-500 transition-all">
-            <MilkdownWrapper 
-              v-model="noteBody" 
+            <MilkdownWrapper
+              v-model="noteBody"
               class="flex-1"
               @update:modelValue="isDirty = true"
+              @uploadAttachment="handleNoteUploadAttachment"
             />
           </div>
           <!-- Editor Footer Info -->
@@ -287,7 +288,7 @@ const noteBody = ref('');
 const rightPanelWidth = ref(450);
 const isResizing = ref(false);
 
-function startResizing(event: MouseEvent) {
+function startResizing(_event: MouseEvent) {
   isResizing.value = true;
   window.addEventListener('mousemove', doResize);
   window.addEventListener('mouseup', stopResizing);
@@ -412,6 +413,24 @@ async function saveNote() {
 function clearNote() {
   noteBody.value = '';
   isDirty.value = true;
+}
+
+async function handleNoteUploadAttachment(
+  file: File,
+  resolve: (url: string) => void,
+  reject: (err: unknown) => void,
+) {
+  const id = notesStore.currentNote?.id;
+  if (!id) {
+    reject(new Error('Save the note before attaching images'));
+    return;
+  }
+  try {
+    const url = await notesStore.uploadAttachment(id, file);
+    resolve(url);
+  } catch (e) {
+    reject(e);
+  }
 }
 
 onMounted(async () => {
