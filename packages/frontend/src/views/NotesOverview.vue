@@ -42,6 +42,35 @@
       </div>
     </header>
 
+    <!-- Tag filter bar -->
+    <div
+      v-if="filterBarTags.length > 0"
+      class="mb-lg flex items-center gap-2 flex-wrap p-3 bg-surface-container-low border border-outline-variant rounded-lg"
+    >
+      <span class="material-symbols-outlined text-[18px] text-on-surface-variant">sell</span>
+      <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mr-1">Tagi:</span>
+      <button
+        v-for="t in filterBarTags"
+        :key="t.slug"
+        type="button"
+        @click="toggleTagFilter(t.slug)"
+        :class="['px-2.5 py-1 rounded-full text-label-sm font-label-sm border transition-colors flex items-center gap-1.5', tagChipClass(t.slug, t.category === 'custom')]"
+        :title="t.category === 'custom' ? `Tag użytkownika (${t.count})` : `Auto-tag ${t.category} (${t.count})`"
+      >
+        <span class="truncate max-w-[180px]">{{ t.slug }}</span>
+        <span class="opacity-70 text-[10px]">{{ t.count }}</span>
+      </button>
+      <button
+        v-if="selectedTags.size > 0"
+        type="button"
+        @click="clearTagFilter"
+        class="ml-auto px-2 py-1 text-on-surface-variant hover:text-on-surface flex items-center gap-1 font-label-sm"
+      >
+        <span class="material-symbols-outlined text-[16px]">filter_alt_off</span>
+        Wyczyść filtr
+      </button>
+    </div>
+
     <div v-if="notesStore.loading" class="flex items-center justify-center py-20">
       <span class="material-symbols-outlined animate-spin text-[32px] text-secondary">sync</span>
     </div>
@@ -117,6 +146,27 @@
         <p class="font-body-sm text-body-sm line-clamp-2" :class="note.pinned ? 'text-on-secondary-container' : 'text-on-surface-variant'">
           Project: {{ note.projectId }}
         </p>
+        <div
+          v-if="visibleTagsOnCard(note).length > 0"
+          class="mt-sm flex flex-wrap gap-1"
+        >
+          <button
+            v-for="tag in visibleTagsOnCard(note).slice(0, 3)"
+            :key="tag"
+            type="button"
+            @click.stop="toggleTagFilter(tag)"
+            :class="['px-2 py-0.5 rounded-full text-[10px] font-label-sm border transition-colors', tagChipClass(tag, true)]"
+            :title="`Filtruj po tagu ${tag}`"
+          >
+            {{ tag }}
+          </button>
+          <span
+            v-if="visibleTagsOnCard(note).length > 3"
+            class="px-1.5 py-0.5 text-[10px] font-label-sm text-on-surface-variant"
+          >
+            +{{ visibleTagsOnCard(note).length - 3 }}
+          </span>
+        </div>
         <div
           class="mt-md pt-md border-t flex items-center justify-between gap-sm font-body-sm text-body-sm"
           :class="note.pinned ? 'border-secondary/25 text-secondary' : 'border-outline-variant text-on-surface-variant'"
@@ -250,6 +300,66 @@
         </div>
         
         <div class="flex-1 overflow-hidden flex flex-col bg-surface-container">
+          <!-- Tag editor -->
+          <div class="px-4 py-2 border-b border-outline-variant bg-surface-container-low/60">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="material-symbols-outlined text-[18px] text-on-surface-variant">sell</span>
+              <span
+                v-for="tag in activeNoteUserTags"
+                :key="tag"
+                class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-secondary-container/60 text-on-secondary-container border border-secondary-container flex items-center gap-1"
+              >
+                {{ tag }}
+                <button
+                  type="button"
+                  @click="removeActiveTag(tag)"
+                  class="hover:text-error transition-colors"
+                  :title="`Usuń tag ${tag}`"
+                >
+                  <span class="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              </span>
+              <div class="relative flex-1 min-w-[160px] flex gap-1">
+                <input
+                  v-model="tagInput"
+                  type="text"
+                  placeholder="Dodaj tag (Enter)..."
+                  @keydown.enter.prevent="addTagFromInput"
+                  @keydown.tab.prevent="addTagFromInput"
+                  @keydown="onTagKeydown"
+                  @focus="showTagSuggestions = true"
+                  @blur="onTagInputBlur"
+                  class="flex-1 px-2 py-1 bg-transparent border border-outline-variant rounded text-on-surface text-body-sm focus:outline-none focus:border-secondary"
+                />
+                <button
+                  type="button"
+                  @click="addTagFromInput"
+                  :disabled="!tagInput.trim()"
+                  class="px-2 py-1 rounded bg-secondary-container/40 text-on-surface hover:bg-secondary-container/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center"
+                  title="Dodaj tag"
+                >
+                  <span class="material-symbols-outlined text-[18px]">add</span>
+                </button>
+                <div
+                  v-if="showTagSuggestions && tagSuggestions.length > 0"
+                  class="absolute z-20 left-0 right-0 top-full mt-1 bg-surface-container-high border border-outline-variant rounded shadow-lg max-h-48 overflow-y-auto"
+                >
+                  <button
+                    v-for="s in tagSuggestions"
+                    :key="s.slug"
+                    type="button"
+                    @mousedown.prevent="pickSuggestion(s.slug)"
+                    class="w-full text-left px-3 py-1.5 hover:bg-surface-container-highest text-body-sm text-on-surface flex items-center justify-between"
+                  >
+                    <span>{{ s.slug }}</span>
+                    <span class="text-on-surface-variant text-[11px]">{{ s.count }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p v-if="tagInputError" class="mt-1 text-error text-label-sm font-label-sm">{{ tagInputError }}</p>
+          </div>
+
           <!-- Obsidian-style Toolbar -->
           <div class="px-3 py-1 border-b border-outline-variant bg-surface-container-low flex flex-wrap gap-0.5 items-center">
             <template v-if="!isSourceMode">
@@ -320,17 +430,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, computed, ref, nextTick } from 'vue';
-import type { NoteListItem } from '../types/api';
+import { onMounted, computed, ref, nextTick, watch } from 'vue';
+import type { NoteListItem, TagSummary } from '../types/api';
+import { TAG_CATEGORY_CUSTOM, TAG_SLUG_REGEX } from '../types/api';
 import { useNotesStore } from '../stores/notesStore';
 import { useJiraStore } from '../stores/jiraStore';
 import { useProjectsStore } from '../stores/projectsStore';
+import { useTagsStore } from '../stores/tagsStore';
 import { useRoute, useRouter } from 'vue-router';
 import MilkdownWrapper from '../components/MilkdownWrapper.vue';
 
 const notesStore = useNotesStore();
 const jiraStore = useJiraStore();
 const projectsStore = useProjectsStore();
+const tagsStore = useTagsStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -344,11 +457,120 @@ const isSourceMode = ref(false);
 const searchQuery = ref('');
 const showArchived = ref(true);
 const activeNotePinned = ref(false);
+const activeNoteUserTags = ref<string[]>([]);
+const tagInput = ref('');
+const tagInputError = ref<string | null>(null);
+const showTagSuggestions = ref(false);
+const selectedTags = ref<Set<string>>(new Set());
+
+function normalizeTagInput(raw: string): string {
+  return raw
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9/-]/g, '');
+}
+
+function isValidTagSlug(slug: string): boolean {
+  return TAG_SLUG_REGEX.test(slug);
+}
+
+function toggleTagFilter(slug: string) {
+  const next = new Set(selectedTags.value);
+  if (next.has(slug)) {
+    next.delete(slug);
+  } else {
+    next.add(slug);
+  }
+  selectedTags.value = next;
+  syncQueryWithSelectedTags();
+}
+
+function clearTagFilter() {
+  selectedTags.value = new Set();
+  syncQueryWithSelectedTags();
+}
+
+function syncQueryWithSelectedTags() {
+  const tags = Array.from(selectedTags.value);
+  router.replace({
+    query: {
+      ...route.query,
+      tag: tags.length === 0 ? undefined : tags,
+    },
+  });
+}
+
+function addTagFromInput() {
+  tagInputError.value = null;
+  const slug = normalizeTagInput(tagInput.value);
+  if (!slug) {
+    tagInput.value = '';
+    return;
+  }
+  if (!isValidTagSlug(slug)) {
+    tagInputError.value = 'Tag musi mieć format: małe litery, cyfry, "-" lub "/" (np. praca/spotkanie).';
+    return;
+  }
+  if (activeNoteUserTags.value.includes(slug)) {
+    tagInput.value = '';
+    return;
+  }
+  activeNoteUserTags.value = [...activeNoteUserTags.value, slug];
+  tagInput.value = '';
+  showTagSuggestions.value = false;
+}
+
+function removeActiveTag(slug: string) {
+  activeNoteUserTags.value = activeNoteUserTags.value.filter(t => t !== slug);
+}
+
+function pickSuggestion(slug: string) {
+  tagInput.value = slug;
+  addTagFromInput();
+}
+
+function onTagInputBlur() {
+  window.setTimeout(() => {
+    showTagSuggestions.value = false;
+  }, 150);
+}
+
+function onTagKeydown(e: KeyboardEvent) {
+  if (e.key === ',') {
+    e.preventDefault();
+    addTagFromInput();
+    return;
+  }
+  if (e.key === 'Backspace' && tagInput.value === '' && activeNoteUserTags.value.length > 0) {
+    activeNoteUserTags.value = activeNoteUserTags.value.slice(0, -1);
+  }
+}
+
+const tagSuggestions = computed<TagSummary[]>(() => {
+  const q = normalizeTagInput(tagInput.value);
+  const customTags = tagsStore.customTags;
+  const filtered = q
+    ? customTags.filter(t => t.slug.includes(q) && !activeNoteUserTags.value.includes(t.slug))
+    : customTags.filter(t => !activeNoteUserTags.value.includes(t.slug));
+  return filtered.slice(0, 8);
+});
 
 function noteMatchesSearch(note: NoteListItem, query: string): boolean {
   if (!query.trim()) return true;
   const q = query.toLowerCase();
   return note.title.toLowerCase().includes(q) || (note.body?.toLowerCase().includes(q) ?? false);
+}
+
+function noteMatchesTagFilter(note: NoteListItem): boolean {
+  if (selectedTags.value.size === 0) return true;
+  const noteTags = note.tags ?? [];
+  for (const t of selectedTags.value) {
+    if (noteTags.includes(t)) return true;
+  }
+  return false;
 }
 
 function sortNotesForOverview(list: NoteListItem[]): NoteListItem[] {
@@ -362,22 +584,49 @@ function sortNotesForOverview(list: NoteListItem[]): NoteListItem[] {
 }
 
 const sortedActiveNotes = computed(() => {
-  const list = notesStore.notes.filter(n => !n.archived && noteMatchesSearch(n, searchQuery.value));
+  const list = notesStore.notes.filter(
+    n => !n.archived && noteMatchesSearch(n, searchQuery.value) && noteMatchesTagFilter(n),
+  );
   return sortNotesForOverview(list);
 });
 
 const sortedArchivedNotes = computed(() => {
-  const list = notesStore.notes.filter(n => !!n.archived && noteMatchesSearch(n, searchQuery.value));
+  const list = notesStore.notes.filter(
+    n => !!n.archived && noteMatchesSearch(n, searchQuery.value) && noteMatchesTagFilter(n),
+  );
   return sortNotesForOverview(list);
 });
 
 const archivedCount = computed(() => notesStore.notes.filter(n => !!n.archived).length);
+
+const filterBarTags = computed<TagSummary[]>(() => {
+  return [...tagsStore.tags].sort((a, b) => {
+    if (a.category !== b.category) {
+      if (a.category === TAG_CATEGORY_CUSTOM) return -1;
+      if (b.category === TAG_CATEGORY_CUSTOM) return 1;
+      return a.category.localeCompare(b.category);
+    }
+    return b.count - a.count;
+  });
+});
+
+function tagChipClass(slug: string, isCustom: boolean): string {
+  if (selectedTags.value.has(slug)) {
+    return 'bg-secondary text-on-secondary border-secondary';
+  }
+  return isCustom
+    ? 'bg-secondary-container/40 text-on-surface border-secondary-container hover:bg-secondary-container/60'
+    : 'bg-surface-container-high text-on-surface-variant border-outline-variant hover:bg-surface-container-highest';
+}
 
 function openNewNoteModal() {
   activeNoteId.value = null;
   activeNoteTitle.value = '';
   activeNoteBody.value = '';
   activeNotePinned.value = false;
+  activeNoteUserTags.value = [];
+  tagInput.value = '';
+  tagInputError.value = null;
   isModalOpen.value = true;
   nextTick(() => {
     if (editorRef.value) {
@@ -391,6 +640,9 @@ async function openEditNoteModal(note: NoteListItem) {
   activeNoteTitle.value = note.title;
   activeNoteBody.value = 'Loading...';
   activeNotePinned.value = !!note.pinned;
+  activeNoteUserTags.value = (note.tags ?? []).filter(t => !isAutoTag(t));
+  tagInput.value = '';
+  tagInputError.value = null;
   isModalOpen.value = true;
 
   try {
@@ -399,11 +651,23 @@ async function openEditNoteModal(note: NoteListItem) {
       activeNoteTitle.value = notesStore.currentNote.title;
       activeNoteBody.value = notesStore.currentNote.body || '';
       activeNotePinned.value = !!notesStore.currentNote.pinned;
+      activeNoteUserTags.value = (notesStore.currentNote.tags ?? []).filter(t => !isAutoTag(t));
     }
   } catch (err) {
     console.error("Failed to load note detail", err);
     activeNoteBody.value = 'Error loading note.';
   }
+}
+
+function isAutoTag(slug: string): boolean {
+  const prefix = slug.split('/')[0];
+  return prefix === 'project' || prefix === 'type' || prefix === 'epic' ||
+         prefix === 'status' || prefix === 'priority' || prefix === 'jira' ||
+         prefix === 'area' || prefix === 'sprint';
+}
+
+function visibleTagsOnCard(note: NoteListItem): string[] {
+  return (note.tags ?? []).filter(t => !isAutoTag(t));
 }
 
 function closeModal() {
@@ -479,13 +743,22 @@ async function saveNote(close: boolean = true) {
     alert("Please enter a title");
     return;
   }
-  
+
+  if (tagInput.value.trim()) {
+    addTagFromInput();
+    if (tagInputError.value) {
+      saving.value = false;
+      return;
+    }
+  }
+
   saving.value = true;
   try {
     if (activeNoteId.value) {
       console.log("Updating existing note:", activeNoteId.value);
       await notesStore.updateNote(activeNoteId.value, activeNoteBody.value, activeNoteTitle.value, {
         pinned: activeNotePinned.value,
+        userTags: [...activeNoteUserTags.value],
       });
     } else {
       console.log("Creating new note. Current projects:", projectsStore.projects);
@@ -495,16 +768,22 @@ async function saveNote(close: boolean = true) {
         project = await projectsStore.createProject('Scratchpad', 'General notes and scratchpad');
       }
       console.log("Saving to project:", project.id);
-      const newNote = await notesStore.createNote(project.id, activeNoteTitle.value, activeNoteBody.value);
-      activeNoteId.value = newNote.id; // Important for attachments to work immediately after saving a new note
+      const newNote = await notesStore.createNote(
+        project.id,
+        activeNoteTitle.value,
+        activeNoteBody.value,
+        [...activeNoteUserTags.value],
+      );
+      activeNoteId.value = newNote.id;
     }
-    await notesStore.fetchAllNotes();
+    await Promise.all([notesStore.fetchAllNotes(), tagsStore.fetchAll()]);
     if (close) {
       closeModal();
     }
   } catch (err) {
     console.error("Save note failed:", err);
-    alert('Failed to save note');
+    const message = err instanceof Error ? err.message : 'Failed to save note';
+    alert(message);
   } finally {
     saving.value = false;
   }
@@ -596,18 +875,39 @@ const referencedJiraTasks = computed(() => {
   return jiraStore.issues.filter(i => keys.has(i.key));
 });
 
+function applyTagQuery() {
+  const raw = route.query.tag;
+  if (raw === undefined || raw === null) {
+    selectedTags.value = new Set();
+    return;
+  }
+  const list = Array.isArray(raw)
+    ? raw.filter((v): v is string => typeof v === 'string')
+    : typeof raw === 'string'
+      ? [raw]
+      : [];
+  selectedTags.value = new Set(list);
+}
+
+watch(() => route.query.tag, applyTagQuery);
+
 onMounted(async () => {
   try {
-    await projectsStore.fetchProjects();
-    await notesStore.fetchAllNotes();
-    // Discover Jira keys in fetched notes
+    applyTagQuery();
+    await Promise.all([
+      projectsStore.fetchProjects(),
+      notesStore.fetchAllNotes(),
+      tagsStore.fetchAll(),
+    ]);
     await notesStore.discoverJiraTasksInNotes(notesStore.notes.filter(n => !n.archived));
 
     if (route.query.openNote) {
       const noteToOpen = notesStore.notes.find((n: any) => n.id === route.query.openNote);
       if (noteToOpen) {
         openEditNoteModal(noteToOpen);
-        router.replace({ query: {} });
+        const { openNote: _omit, ...rest } = route.query;
+        void _omit;
+        router.replace({ query: rest });
       }
     }
   } catch (err) {

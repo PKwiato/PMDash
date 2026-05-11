@@ -34,7 +34,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   const noteRepo = new MarkdownNoteRepository(config, parser, projectRepo);
   const epicRepo = new MarkdownEpicRepository();
   const taskRepo = new MarkdownTaskRepository();
-  const tagRepo = new MarkdownTagRepository();
+  const tagRepo = new MarkdownTagRepository(config, parser);
   const vaultWriter = new ObsidianVaultWriter(config);
 
   let jiraAdapter: JiraApiAdapter | null = null;

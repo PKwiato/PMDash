@@ -5,11 +5,13 @@ import { ProjectNotFoundError } from '../../../domain/errors/ProjectNotFoundErro
 import type { INoteRepository } from '../../../domain/ports/INoteRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
 import { AutoTagBuilder } from '../../../domain/value-objects/AutoTagBuilder';
+import { Tag, TagCategory } from '../../../domain/value-objects/Tag';
 
 export interface CreateNoteDTO {
   projectId: string;
   title: string;
   body?: string;
+  userTags?: string[];
 }
 
 export class CreateNote {
@@ -29,12 +31,36 @@ export class CreateNote {
       slug = `${baseSlug}-${uuid().slice(0, 8)}`;
     }
 
+    const userTags = parseUserTagsInput(dto.userTags);
+
     const now = new Date();
-    const note = new Note(uuid(), dto.title, slug, dto.projectId, [], now, now);
+    const note = new Note(uuid(), dto.title, slug, dto.projectId, userTags, now, now);
     const tags = AutoTagBuilder.forNote(note, project.slug);
     const body = (dto.body ?? '').trim() || '## Treść\n\n';
 
     await this.noteRepo.save(note, tags, [], [dto.title], body);
     return note;
   }
+}
+
+export function parseUserTagsInput(input: unknown): Tag[] {
+  if (input === undefined) return [];
+  if (!Array.isArray(input)) {
+    throw new Error('userTags must be an array of strings');
+  }
+  const tags: Tag[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (typeof raw !== 'string') {
+      throw new Error('userTags must contain only strings');
+    }
+    const tag = Tag.of(raw.trim());
+    if (tag.category !== TagCategory.CUSTOM) {
+      throw new Error(`Tag "${tag.slug}" is reserved (structured tag); only custom tags allowed`);
+    }
+    if (seen.has(tag.slug)) continue;
+    seen.add(tag.slug);
+    tags.push(tag);
+  }
+  return tags;
 }

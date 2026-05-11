@@ -24,11 +24,25 @@ export interface NoteListItem {
   body?: string;
   pinned?: boolean;
   archived?: boolean;
+  tags?: string[];
 }
 
 export interface NoteDetail extends NoteListItem {
   body: string;
+  tags: string[];
 }
+
+export interface TagSummary {
+  slug: string;
+  label: string;
+  category: string;
+  count: number;
+  editable: boolean;
+}
+
+export const TAG_CATEGORY_CUSTOM = 'custom';
+
+export const TAG_SLUG_REGEX = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
 
 export interface JiraBoardListItem {
   id: number;

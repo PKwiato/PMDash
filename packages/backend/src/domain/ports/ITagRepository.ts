@@ -17,4 +17,6 @@ export interface TaggedItems {
 export interface ITagRepository {
   findAll(): Promise<TagWithCount[]>;
   findByTag(tagSlug: string): Promise<TaggedItems>;
+  renameInNotes(oldSlug: string, newSlug: string): Promise<{ updated: number }>;
+  deleteFromNotes(slug: string): Promise<{ updated: number }>;
 }

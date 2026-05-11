@@ -73,4 +73,19 @@ export class Note {
       archived,
     );
   }
+
+  withUserTags(userTags: Tag[]): Note {
+    return new Note(
+      this.id,
+      this.title,
+      this.slug,
+      this.projectId,
+      userTags,
+      this.createdAt,
+      new Date(),
+      this.body,
+      this.pinned,
+      this.archived,
+    );
+  }
 }

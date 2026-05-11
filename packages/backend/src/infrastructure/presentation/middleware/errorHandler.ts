@@ -6,6 +6,7 @@ import { NoteNotFoundError } from '../../../domain/errors/NoteNotFoundError';
 import { ProjectNotFoundError } from '../../../domain/errors/ProjectNotFoundError';
 import { TaskNotFoundError } from '../../../domain/errors/TaskNotFoundError';
 import { JiraApiError } from '../../jira/JiraApiClient';
+import { StructuredTagModificationError } from '../../persistence/MarkdownTagRepository';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -19,7 +20,7 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     res.status(404).json({ error: err.message });
     return;
   }
-  if (err instanceof InvalidTagError) {
+  if (err instanceof InvalidTagError || err instanceof StructuredTagModificationError) {
     res.status(400).json({ error: err.message });
     return;
   }
