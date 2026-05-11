@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { JiraIssueDto } from '../types/api';
+import type { JiraIssueDto, JiraSprintScopeDto } from '../types/api';
 import { api, getApiErrorMessage } from '../api/client';
 
 export const useJiraStore = defineStore('jira', () => {
@@ -11,6 +11,7 @@ export const useJiraStore = defineStore('jira', () => {
   const boards = ref<{ id: number; name: string }[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const sprintScope = ref<JiraSprintScopeDto | null>(null);
 
   async function fetchConfig() {
     try {
@@ -44,6 +45,21 @@ export const useJiraStore = defineStore('jira', () => {
     }
   }
 
+  async function fetchSprintScope(boardId?: number) {
+    const id = boardId || defaultBoardId.value;
+    if (!id) {
+      sprintScope.value = null;
+      return;
+    }
+    try {
+      const { data } = await api.get<JiraSprintScopeDto>(`/jira/boards/${id}/sprint-scope`);
+      sprintScope.value = data;
+    } catch (err: unknown) {
+      console.error('Error fetching sprint scope:', err);
+      sprintScope.value = null;
+    }
+  }
+
   async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
@@ -51,10 +67,13 @@ export const useJiraStore = defineStore('jira', () => {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.get<JiraIssueDto[]>(`/jira/boards/${id}/issues`, {
-        params: { activeSprintOnly },
-      });
-      issues.value = response.data;
+      const [issuesResponse] = await Promise.all([
+        api.get<JiraIssueDto[]>(`/jira/boards/${id}/issues`, {
+          params: { activeSprintOnly },
+        }),
+        fetchSprintScope(id),
+      ]);
+      issues.value = issuesResponse.data;
     } catch (err: unknown) {
       error.value = getApiErrorMessage(err, 'Failed to fetch issues');
       console.error('Error fetching Jira issues:', err);
@@ -102,8 +121,10 @@ export const useJiraStore = defineStore('jira', () => {
     boards,
     loading,
     error,
+    sprintScope,
     fetchConfig,
     fetchIssuesForBoard,
+    fetchSprintScope,
     fetchIssuesByKeys,
     updateConfig,
   };

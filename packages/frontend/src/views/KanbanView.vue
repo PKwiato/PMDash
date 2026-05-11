@@ -94,81 +94,14 @@
 import { onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
+import { KANBAN_COLUMNS, groupIssuesByKanbanColumn, type KanbanColumn } from '../utils/jiraIssueStatus';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
 
-const defaultColumns = ['Do zrobienia', 'W toku', 'Code Review', 'Testowanie', 'Beta', 'Gotowe'];
+const displayColumns: KanbanColumn[] = [...KANBAN_COLUMNS];
 
-const statusMapping: Record<string, string> = {
-  // Do zrobienia
-  'to do': 'Do zrobienia',
-  'open': 'Do zrobienia',
-  'backlog': 'Do zrobienia',
-  'selected for development': 'Do zrobienia',
-  'do zrobienia': 'Do zrobienia',
-  'otwarte': 'Do zrobienia',
-  // W toku
-  'in progress': 'W toku',
-  'development': 'W toku',
-  'running': 'W toku',
-  'in dev': 'W toku',
-  'w toku': 'W toku',
-  'w pracy': 'W toku',
-  // Code Review
-  'code review': 'Code Review',
-  'review': 'Code Review',
-  'peer review': 'Code Review',
-  'in review': 'Code Review',
-  'do przeglądu': 'Code Review',
-  // Testowanie
-  'testing': 'Testowanie',
-  'qa': 'Testowanie',
-  'test': 'Testowanie',
-  'ready for qa': 'Testowanie',
-  'qa ready': 'Testowanie',
-  'ready for test': 'Testowanie',
-  'ready for testing': 'Testowanie',
-  'to test': 'Testowanie',
-  'testowanie': 'Testowanie',
-  // Beta
-  'beta': 'Beta',
-  'staging': 'Beta',
-  // Gotowe
-  'done': 'Gotowe',
-  'closed': 'Gotowe',
-  'resolved': 'Gotowe',
-  'finished': 'Gotowe',
-  'gotowe': 'Gotowe',
-  'zrobione': 'Gotowe',
-  'ukończone': 'Gotowe',
-  'zamknięte': 'Gotowe'
-};
-
-const groupedIssues = computed(() => {
-  const groups: Record<string, any[]> = {};
-  
-  // Initialize with default columns
-  defaultColumns.forEach(c => groups[c] = []);
-  
-  jiraStore.issues.forEach(issue => {
-    const rawStatus = issue.status || 'To Do';
-    const normalizedStatus = rawStatus.toLowerCase().trim();
-    
-    const mappedStatus = statusMapping[normalizedStatus] || 
-                        (normalizedStatus.includes('done') || normalizedStatus.includes('zrobione') ? 'Gotowe' : 'Do zrobienia');
-    
-    if (groups[mappedStatus]) {
-      groups[mappedStatus].push(issue);
-    } else {
-      groups['Do zrobienia'].push(issue);
-    }
-  });
-  
-  return groups;
-});
-
-const displayColumns = computed(() => defaultColumns);
+const groupedIssues = computed(() => groupIssuesByKanbanColumn(jiraStore.issues));
 
 async function refresh() {
   await jiraStore.fetchConfig();

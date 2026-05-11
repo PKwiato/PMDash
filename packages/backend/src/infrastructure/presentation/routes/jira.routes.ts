@@ -68,6 +68,38 @@ export function jiraRouter(
     }
   });
 
+  r.get('/boards/:boardId/sprint-scope', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const boardId = Number((req.params as { boardId: string }).boardId);
+      if (!Number.isFinite(boardId) || boardId < 1) {
+        res.status(400).json({ error: 'Invalid boardId' });
+        return;
+      }
+      const sprints = await jiraAdapter.listBoardSprints(boardId);
+      const activeSprint = sprints.find(s => s.state === 'active');
+      if (activeSprint) {
+        res.json({
+          mode: 'active_sprint' as const,
+          sprint: {
+            id: activeSprint.id,
+            name: activeSprint.name,
+            state: activeSprint.state,
+            startDate: activeSprint.startDate || null,
+            endDate: activeSprint.endDate || null,
+          },
+        });
+        return;
+      }
+      res.json({ mode: 'whole_board' as const, sprint: null });
+    } catch (e) {
+      next(e);
+    }
+  });
+
   r.get('/boards/:boardId/issues', async (req, res, next) => {
     try {
       if (!jiraAdapter) {

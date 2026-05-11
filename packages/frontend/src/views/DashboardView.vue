@@ -5,6 +5,7 @@
       <div>
         <h1 class="font-headline-xl text-headline-xl text-on-surface">System Overview</h1>
         <p class="font-body-md text-body-md text-on-primary-container mt-xs">Real-time status of monitored Jira instances and team performance.</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-sm max-w-2xl">{{ sprintContextLine }}</p>
       </div>
 
       <div class="flex gap-sm">
@@ -35,8 +36,8 @@
             <span class="material-symbols-outlined">sync</span>
           </div>
         </div>
-        <div class="text-headline-lg font-headline-lg text-on-surface">{{ inProgressCount }}</div>
-        <div class="text-body-sm font-body-sm text-on-primary-container">In Progress</div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ inFlightCount }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">In flight</div>
       </div>
       <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
         <div class="flex items-center justify-between mb-md">
@@ -53,8 +54,28 @@
             <span class="material-symbols-outlined">check_circle</span>
           </div>
         </div>
-        <div class="text-headline-lg font-headline-lg text-on-surface">{{ resolvedCount }}</div>
-        <div class="text-body-sm font-body-sm text-on-primary-container">Resolved</div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ doneCount }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">Done</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter mb-xl">
+      <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-md">
+          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+            <span class="material-symbols-outlined">pie_chart</span>
+          </div>
+        </div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ storyPointsDoneDisplay }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">Story points (done)</div>
+      </div>
+      <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-md">
+          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+            <span class="material-symbols-outlined">analytics</span>
+          </div>
+        </div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ storyPointsTotalDisplay }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">Story points (total)</div>
       </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
@@ -81,11 +102,7 @@
                 <td class="px-lg py-md font-label-md text-secondary">{{ issue.key }}</td>
                 <td class="px-lg py-md font-body-md text-on-surface">{{ issue.summary }}</td>
                 <td class="px-lg py-md">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="{
-                    'bg-green-500/20 text-green-500': issue.status === 'Done',
-                    'bg-blue-500/20 text-blue-500': issue.status === 'In Progress',
-                    'bg-outline-variant text-on-surface-variant': !['Done', 'In Progress'].includes(issue.status)
-                  }">{{ issue.status }}</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="statusChipClass(issue)">{{ issue.status }}</span>
                 </td>
                 <td class="px-lg py-md">
                   <div class="flex items-center gap-2">
@@ -140,7 +157,7 @@
           <h2 class="font-headline-xl text-headline-xl mb-md">All systems operational</h2>
           <div class="flex gap-xl">
             <div>
-              <div class="text-label-sm opacity-60 uppercase mb-1">Active Issues</div>
+              <div class="text-label-sm opacity-60 uppercase mb-1">Issues in scope</div>
               <div class="text-headline-md">{{ jiraStore.issues.length }}</div>
             </div>
             <div>
@@ -170,13 +187,64 @@
 import { onMounted, computed } from 'vue';
 import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
+import { metricBucketForIssue } from '../utils/jiraIssueStatus';
+import type { JiraIssueDto } from '../types/api';
 
 const jiraStore = useJiraStore();
 const notesStore = useNotesStore();
 
-const inProgressCount = computed(() => jiraStore.issues.filter(i => i.status === 'In Progress').length);
-const resolvedCount = computed(() => jiraStore.issues.filter(i => i.status === 'Done' || i.status === 'Resolved').length);
-const blockedCount = computed(() => jiraStore.issues.filter(i => i.status.toLowerCase().includes('block')).length);
+function statusChipClass(issue: JiraIssueDto) {
+  const b = metricBucketForIssue(issue.status);
+  if (b === 'done') return 'bg-green-500/20 text-green-500';
+  if (b === 'inFlight') return 'bg-blue-500/20 text-blue-500';
+  if (b === 'blocked') return 'bg-error/20 text-error';
+  return 'bg-outline-variant text-on-surface-variant';
+}
+
+const inFlightCount = computed(
+  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'inFlight').length,
+);
+const doneCount = computed(
+  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'done').length,
+);
+const blockedCount = computed(
+  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'blocked').length,
+);
+
+const hasStoryPointEstimates = computed(() =>
+  jiraStore.issues.some(i => i.storyPoints != null && Number(i.storyPoints) > 0),
+);
+
+const storyPointsTotal = computed(() =>
+  jiraStore.issues.reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
+);
+
+const storyPointsDone = computed(() =>
+  jiraStore.issues
+    .filter(i => metricBucketForIssue(i.status) === 'done')
+    .reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
+);
+
+const storyPointsTotalDisplay = computed(() =>
+  hasStoryPointEstimates.value ? String(storyPointsTotal.value) : '—',
+);
+const storyPointsDoneDisplay = computed(() =>
+  hasStoryPointEstimates.value ? String(storyPointsDone.value) : '—',
+);
+
+const sprintContextLine = computed(() => {
+  const board = jiraStore.boardName;
+  if (!jiraStore.defaultBoardId) {
+    return 'Set a default Jira board in Settings to see sprint metrics.';
+  }
+  if (jiraStore.sprintScope?.mode === 'active_sprint' && jiraStore.sprintScope.sprint) {
+    return `Metrics for active sprint «${jiraStore.sprintScope.sprint.name}» on ${board}.`;
+  }
+  if (jiraStore.sprintScope?.mode === 'whole_board') {
+    return `No active sprint — counts include all issues on ${board}.`;
+  }
+  return `Board: ${board}.`;
+});
 
 const recentIssues = computed(() => jiraStore.issues.slice(0, 5));
 const recentNotes = computed(() => notesStore.notes.slice(0, 4));

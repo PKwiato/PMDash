@@ -88,3 +88,18 @@ export interface JiraIssueDto {
   subtasks?: JiraLinkedIssueDto[];
   storyPoints?: number | null;
 }
+
+export type JiraSprintScopeMode = 'active_sprint' | 'whole_board';
+
+export interface JiraSprintSummaryDto {
+  id: number;
+  name: string;
+  state: string;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface JiraSprintScopeDto {
+  mode: JiraSprintScopeMode;
+  sprint: JiraSprintSummaryDto | null;
+}
