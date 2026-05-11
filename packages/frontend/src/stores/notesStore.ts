@@ -81,11 +81,13 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  async function createNote(projectId: string, title: string, body: string) {
+  async function createNote(projectId: string, title: string, body: string, userTags?: string[]) {
     loading.value = true;
     error.value = null;
     try {
-      const response = await api.post<NoteDetail>(`/projects/${projectId}/notes`, { title, body });
+      const payload: Record<string, unknown> = { title, body };
+      if (userTags !== undefined) payload.userTags = userTags;
+      const response = await api.post<NoteDetail>(`/projects/${projectId}/notes`, payload);
       currentNote.value = response.data;
       await fetchAllNotes();
       return response.data;
@@ -101,7 +103,7 @@ export const useNotesStore = defineStore('notes', () => {
     id: string,
     body: string,
     title?: string,
-    opts?: { pinned?: boolean; archived?: boolean },
+    opts?: { pinned?: boolean; archived?: boolean; userTags?: string[] },
   ) {
     loading.value = true;
     error.value = null;

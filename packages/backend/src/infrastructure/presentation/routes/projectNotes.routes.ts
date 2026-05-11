@@ -13,8 +13,11 @@ export function projectNotesRouter(projectRepo: IProjectRepository, noteRepo: IN
   r.get('/', async (req, res, next) => {
     try {
       const projectId = (req.params as { projectId: string }).projectId;
-      const notes = await listNotes.execute(projectId);
-      res.json(notes.map(noteToListJson));
+      const [notes, project] = await Promise.all([
+        listNotes.execute(projectId),
+        projectRepo.findById(projectId),
+      ]);
+      res.json(notes.map(n => noteToListJson(n, project?.slug)));
     } catch (e) {
       next(e);
     }
@@ -22,18 +25,33 @@ export function projectNotesRouter(projectRepo: IProjectRepository, noteRepo: IN
 
   r.post('/', async (req, res, next) => {
     try {
-      const { title, body } = req.body as { title?: string; body?: string };
+      const { title, body, userTags } = req.body as {
+        title?: string;
+        body?: string;
+        userTags?: unknown;
+      };
       if (!title || typeof title !== 'string') {
         res.status(400).json({ error: 'title is required' });
         return;
+      }
+      if (userTags !== undefined) {
+        if (!Array.isArray(userTags) || userTags.some(t => typeof t !== 'string')) {
+          res.status(400).json({ error: 'userTags must be an array of strings' });
+          return;
+        }
       }
       const projectId = (req.params as { projectId: string }).projectId;
       const note = await createNote.execute({
         projectId,
         title,
         body: typeof body === 'string' ? body : undefined,
+        userTags: userTags as string[] | undefined,
       });
-      res.status(201).json({ ...noteToListJson(note), body: typeof body === 'string' ? body : '' });
+      const project = await projectRepo.findById(projectId);
+      res.status(201).json({
+        ...noteToListJson(note, project?.slug),
+        body: typeof body === 'string' ? body : '',
+      });
     } catch (e) {
       next(e);
     }

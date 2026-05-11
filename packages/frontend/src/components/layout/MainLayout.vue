@@ -73,6 +73,10 @@
           <span class="material-symbols-outlined">checklist</span>
           Note Tasks
         </router-link>
+        <router-link to="/tags" class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all rounded-lg" active-class="text-secondary bg-secondary-container/20 border-r-4 border-secondary">
+          <span class="material-symbols-outlined">sell</span>
+          Tagi
+        </router-link>
         <router-link to="/clockwork/analysis" class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all rounded-lg" active-class="text-secondary bg-secondary-container/20 border-r-4 border-secondary">
           <span class="material-symbols-outlined">analytics</span>
           Worklog Analysis
