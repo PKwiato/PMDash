@@ -1,6 +1,6 @@
 <template>
-  <div class="p-lg max-w-[1400px] mx-auto">
-    <header class="flex justify-between items-end mb-xl">
+  <div class="p-md lg:p-lg max-w-[1800px] mx-auto">
+    <header class="flex justify-between items-end mb-lg">
       <div>
         <h1 class="font-headline-xl text-headline-xl text-on-surface">Private Notes</h1>
         <p class="font-body-md text-body-md text-on-surface-variant mt-xs">Personal thoughts and draft documentation for your current projects.</p>
@@ -78,12 +78,12 @@
       <p class="font-label-md">{{ notesStore.error }}</p>
     </div>
     <!-- Bento Grid Layout for Notes -->
-    <div v-else class="grid grid-cols-12 gap-gutter">
+    <div v-else class="grid grid-cols-12 gap-md">
       <!-- Standard Note Cards -->
       <div v-for="note in sortedActiveNotes" :key="note.id" 
            @click="openEditNoteModal(note)"
            :class="[
-             'col-span-12 md:col-span-6 lg:col-span-4 group rounded-xl p-lg flex flex-col note-card transition-all duration-200 cursor-pointer relative border',
+             'col-span-12 md:col-span-6 lg:col-span-3 xl:col-span-2 group rounded-xl p-md flex flex-col note-card transition-all duration-200 cursor-pointer relative border',
              note.pinned
                ? 'bg-secondary-container/55 border-secondary/55 shadow-md shadow-secondary/20 ring-1 ring-secondary/30 hover:bg-secondary-container/65 hover:border-secondary/70'
                : 'bg-surface-container-lowest border-outline-variant hover:bg-surface-container-low'
@@ -179,7 +179,7 @@
       </div>
       
       <!-- Asymmetric Accent Card -->
-      <div class="col-span-12 lg:col-span-4 bg-primary-container text-on-primary-container rounded-xl p-lg flex flex-col relative overflow-hidden group cursor-pointer hover:bg-primary-container/90 transition-colors">
+      <div class="col-span-12 lg:col-span-3 xl:col-span-2 bg-primary-container text-on-primary-container rounded-xl p-md flex flex-col relative overflow-hidden group cursor-pointer hover:bg-primary-container/90 transition-colors">
         <div class="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
           <span class="material-symbols-outlined text-[120px]">lightbulb</span>
         </div>
@@ -199,12 +199,12 @@
             <span class="material-symbols-outlined text-[22px]">inventory_2</span>
             Archiwum
           </h2>
-          <div class="grid grid-cols-12 gap-gutter">
+          <div class="grid grid-cols-12 gap-md">
             <div
               v-for="note in sortedArchivedNotes"
               :key="'archived-' + note.id"
               @click="openEditNoteModal(note)"
-              class="col-span-12 md:col-span-6 lg:col-span-4 group bg-surface-container-high/40 border border-dashed border-outline-variant rounded-xl p-lg flex flex-col cursor-pointer relative hover:bg-surface-container-high/60 transition-all"
+              class="col-span-12 md:col-span-6 lg:col-span-3 xl:col-span-2 group bg-surface-container-high/40 border border-dashed border-outline-variant rounded-xl p-md flex flex-col cursor-pointer relative hover:bg-surface-container-high/60 transition-all"
             >
               <div class="absolute top-4 right-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
@@ -271,7 +271,7 @@
 
     <!-- Note Editor Modal -->
     <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
-      <div class="bg-surface-container border border-outline-variant rounded-xl shadow-2xl w-full max-w-4xl flex flex-col h-[85vh] overflow-hidden text-on-surface">
+      <div class="bg-surface-container border border-outline-variant rounded-xl shadow-2xl w-full max-w-6xl flex flex-col h-[90vh] overflow-hidden text-on-surface">
         <div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-high">
           <div class="flex items-center gap-3 flex-1">
             <span class="material-symbols-outlined text-secondary">description</span>
