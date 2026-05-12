@@ -3,8 +3,9 @@
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-xl gap-4">
       <div>
-        <h1 class="font-headline-xl text-3xl font-bold text-on-surface tracking-tight">System Overview</h1>
-        <p class="font-body-md text-on-primary-container mt-1 opacity-80">Real-time status of monitored Jira instances and team performance.</p>
+        <h1 class="font-headline-xl text-headline-xl text-on-surface">System Overview</h1>
+        <p class="font-body-md text-body-md text-on-primary-container mt-xs">Real-time status of monitored Jira instances and team performance.</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-sm max-w-2xl">{{ sprintContextLine }}</p>
       </div>
 
       <div class="flex gap-sm w-full md:w-auto">
@@ -71,6 +72,8 @@
             <span class="text-[10px] font-bold text-on-primary-container tracking-wider uppercase">Done</span>
           </div>
         </div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ inFlightCount }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">In flight</div>
       </div>
     </div>
 
@@ -98,6 +101,28 @@
             <span class="text-[10px] font-bold text-on-primary-container tracking-wider uppercase">Story Points (Total)</span>
           </div>
         </div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ doneCount }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">Done</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter mb-xl">
+      <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-md">
+          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+            <span class="material-symbols-outlined">pie_chart</span>
+          </div>
+        </div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ storyPointsDoneDisplay }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">Story points (done)</div>
+      </div>
+      <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-md">
+          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+            <span class="material-symbols-outlined">analytics</span>
+          </div>
+        </div>
+        <div class="text-headline-lg font-headline-lg text-on-surface">{{ storyPointsTotalDisplay }}</div>
+        <div class="text-body-sm font-body-sm text-on-primary-container">Story points (total)</div>
       </div>
     </div>
 
@@ -122,12 +147,10 @@
               <tr v-for="issue in recentIssues" :key="issue.id" 
                   class="group hover:bg-surface-container transition-colors cursor-pointer"
                   @click="$router.push(`/tasks/${issue.key}`)">
-                <td class="px-xl py-lg text-sm font-bold text-on-surface group-hover:text-secondary transition-colors">{{ issue.key }}</td>
-                <td class="px-xl py-lg text-sm text-on-surface/90 font-medium">{{ issue.summary }}</td>
-                <td class="px-xl py-lg text-center">
-                  <span class="px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider inline-block min-w-[80px]" :class="statusClass(issue.status)">
-                    {{ issue.status }}
-                  </span>
+                <td class="px-lg py-md font-label-md text-secondary">{{ issue.key }}</td>
+                <td class="px-lg py-md font-body-md text-on-surface">{{ issue.summary }}</td>
+                <td class="px-lg py-md">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="statusChipClass(issue)">{{ issue.status }}</span>
                 </td>
                 <td class="px-xl py-lg">
                   <div class="flex items-center gap-3">
@@ -193,10 +216,39 @@
         </div>
       </div>
     </div>
+    <!-- Team Activity / Analytics Preview -->
+    <div class="mt-xl grid grid-cols-1 md:grid-cols-3 gap-gutter">
+      <div class="md:col-span-3 bg-primary-container text-white rounded-xl p-xl relative overflow-hidden">
+        <div class="relative z-10">
+          <div class="inline-flex items-center gap-sm bg-teal-600 text-teal-100 px-md py-1 rounded-full text-label-sm mb-md">
+            <span class="material-symbols-outlined text-sm">trending_up</span>
+            System Health: Optimal
+          </div>
+          <h2 class="font-headline-xl text-headline-xl mb-md">All systems operational</h2>
+          <div class="flex gap-xl">
+            <div>
+              <div class="text-label-sm opacity-60 uppercase mb-1">Issues in scope</div>
+              <div class="text-headline-md">{{ jiraStore.issues.length }}</div>
+            </div>
+            <div>
+              <div class="text-label-sm opacity-60 uppercase mb-1">Sync Success</div>
+              <div class="text-headline-md">100%</div>
+            </div>
+            <div>
+              <div class="text-label-sm opacity-60 uppercase mb-1">Uptime</div>
+              <div class="text-headline-md">99.98%</div>
+            </div>
+          </div>
+        </div>
+        <!-- Decorative Background Element -->
+        <div class="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-teal-600 to-transparent opacity-20"></div>
+        <div class="absolute -right-12 -bottom-12 w-64 h-64 bg-teal-500 rounded-full blur-3xl opacity-10"></div>
+      </div>
+    </div>
 
-    <!-- Floating Action Button -->
-    <button class="fixed bottom-8 right-8 w-16 h-16 bg-secondary text-on-secondary rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group">
-      <span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">add</span>
+    <!-- Contextual FAB (Only on dashboard/home) -->
+    <button class="fixed bottom-xl right-xl w-14 h-14 bg-secondary text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-50">
+      <span class="material-symbols-outlined text-3xl">add</span>
     </button>
   </div>
 </template>
@@ -205,32 +257,64 @@
 import { onMounted, computed } from 'vue';
 import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
+import { metricBucketForIssue } from '../utils/jiraIssueStatus';
+import type { JiraIssueDto } from '../types/api';
 
 const jiraStore = useJiraStore();
 const notesStore = useNotesStore();
 
-// Stats calculations
-const inFlightCount = computed(() => 
-  jiraStore.issues.filter(i => ['In Progress', 'In Flight', 'Testowanie', 'Beta'].includes(i.status)).length
+function statusChipClass(issue: JiraIssueDto) {
+  const b = metricBucketForIssue(issue.status);
+  if (b === 'done') return 'bg-green-500/20 text-green-500';
+  if (b === 'inFlight') return 'bg-blue-500/20 text-blue-500';
+  if (b === 'blocked') return 'bg-error/20 text-error';
+  return 'bg-outline-variant text-on-surface-variant';
+}
+
+const inFlightCount = computed(
+  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'inFlight').length,
+);
+const doneCount = computed(
+  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'done').length,
+);
+const blockedCount = computed(
+  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'blocked').length,
 );
 
-const doneCount = computed(() => 
-  jiraStore.issues.filter(i => ['Done', 'Resolved', 'Zakończone'].includes(i.status)).length
+const hasStoryPointEstimates = computed(() =>
+  jiraStore.issues.some(i => i.storyPoints != null && Number(i.storyPoints) > 0),
 );
 
-const blockedCount = computed(() => 
-  jiraStore.issues.filter(i => i.status.toLowerCase().includes('block') || i.status === 'Blocked').length
+const storyPointsTotal = computed(() =>
+  jiraStore.issues.reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
 );
 
-const storyPointsDone = computed(() => 
+const storyPointsDone = computed(() =>
   jiraStore.issues
-    .filter(i => ['Done', 'Resolved', 'Zakończone'].includes(i.status))
-    .reduce((sum, i) => sum + (i.storyPoints || 0), 0)
+    .filter(i => metricBucketForIssue(i.status) === 'done')
+    .reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
 );
 
-const storyPointsTotal = computed(() => 
-  jiraStore.issues.reduce((sum, i) => sum + (i.storyPoints || 0), 0)
+const storyPointsTotalDisplay = computed(() =>
+  hasStoryPointEstimates.value ? String(storyPointsTotal.value) : '—',
 );
+const storyPointsDoneDisplay = computed(() =>
+  hasStoryPointEstimates.value ? String(storyPointsDone.value) : '—',
+);
+
+const sprintContextLine = computed(() => {
+  const board = jiraStore.boardName;
+  if (!jiraStore.defaultBoardId) {
+    return 'Set a default Jira board in Settings to see sprint metrics.';
+  }
+  if (jiraStore.sprintScope?.mode === 'active_sprint' && jiraStore.sprintScope.sprint) {
+    return `Metrics for active sprint «${jiraStore.sprintScope.sprint.name}» on ${board}.`;
+  }
+  if (jiraStore.sprintScope?.mode === 'whole_board') {
+    return `No active sprint — counts include all issues on ${board}.`;
+  }
+  return `Board: ${board}.`;
+});
 
 const recentIssues = computed(() => jiraStore.issues.slice(0, 5));
 const recentNotes = computed(() => notesStore.notes.slice(0, 4));

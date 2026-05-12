@@ -73,6 +73,24 @@ export interface JiraLinkedIssueDto {
   issueType: string;
 }
 
+export interface JiraChangelogItemDto {
+  field: string;
+  fromString: string | null;
+  toString: string | null;
+}
+
+export interface JiraChangelogHistoryDto {
+  id: string;
+  created: string;
+  author: string | null;
+  items: JiraChangelogItemDto[];
+}
+
+export interface JiraStatusDwellDto {
+  status: string;
+  businessDays: number;
+}
+
 export interface JiraIssueDto {
   id: string;
   key: string;
@@ -87,4 +105,24 @@ export interface JiraIssueDto {
   linkedIssues?: JiraLinkedIssueDto[];
   subtasks?: JiraLinkedIssueDto[];
   storyPoints?: number | null;
+  created?: string;
+  changelog?: JiraChangelogHistoryDto[];
+  statusDwellBusinessDays?: JiraStatusDwellDto[];
+  /** Dni robocze (UTC) w bieżącym statusie od ostatniej zmiany statusu w Jirze. */
+  currentStatusBusinessDays?: number;
+}
+
+export type JiraSprintScopeMode = 'active_sprint' | 'whole_board';
+
+export interface JiraSprintSummaryDto {
+  id: number;
+  name: string;
+  state: string;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface JiraSprintScopeDto {
+  mode: JiraSprintScopeMode;
+  sprint: JiraSprintSummaryDto | null;
 }
