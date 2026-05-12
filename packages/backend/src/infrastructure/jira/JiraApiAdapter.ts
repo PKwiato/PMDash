@@ -11,6 +11,28 @@ import type {
 import { JiraApiClient } from './JiraApiClient';
 import { JiraResponseMapper } from './JiraResponseMapper';
 
+const ISSUE_FIELDS =
+  'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks,customfield_10004,created';
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    for (;;) {
+      const idx = cursor++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx]!, idx);
+    }
+  };
+  const pool = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+  return results;
+}
+
 export class JiraApiAdapter implements IJiraAdapter {
   constructor(private readonly client: JiraApiClient) {}
 
@@ -70,7 +92,8 @@ export class JiraApiAdapter implements IJiraAdapter {
     const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
       path,
       {
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks,customfield_10004',
+        fields:
+          'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks,customfield_10004,created',
         maxResults: '200',
       },
       'agile',
@@ -93,11 +116,69 @@ export class JiraApiAdapter implements IJiraAdapter {
     }));
   }
 
-  async getIssue(issueKey: string): Promise<JiraIssue> {
-    const data = await this.client.get<unknown>(`/issue/${issueKey}`, {
-      fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks,customfield_10004',
+  async getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue> {
+    const key = encodeURIComponent(issueKey);
+    if (options?.includeChangelog) {
+      const raw = await this.fetchRawIssueWithFullChangelog(key);
+      return JiraResponseMapper.toIssue(raw as never);
+    }
+    const data = await this.client.get<unknown>(`/issue/${key}`, {
+      fields: ISSUE_FIELDS,
     });
     return JiraResponseMapper.toIssue(data as never);
+  }
+
+  /** Loads issue JSON with `expand=changelog` and follows `/issue/{key}/changelog` pagination when needed. */
+  private async fetchRawIssueWithFullChangelog(encodedIssueKey: string): Promise<Record<string, unknown>> {
+    const data = await this.client.get<Record<string, unknown>>(`/issue/${encodedIssueKey}`, {
+      fields: ISSUE_FIELDS,
+      expand: 'changelog',
+    });
+    const changelog = data.changelog as
+      | {
+          histories?: Array<Record<string, unknown>>;
+          total?: number;
+        }
+      | undefined;
+    if (!changelog) {
+      return data;
+    }
+    const histories: Array<Record<string, unknown>> = [...(changelog.histories ?? [])];
+    let total = typeof changelog.total === 'number' ? changelog.total : histories.length;
+    const pageSize = 100;
+    let startAt = histories.length;
+    while (startAt < total) {
+      const page = await this.client.get<{
+        histories?: Array<Record<string, unknown>>;
+        total?: number;
+      }>(`/issue/${encodedIssueKey}/changelog`, {
+        startAt: String(startAt),
+        maxResults: String(pageSize),
+      });
+      const batch = page.histories ?? [];
+      histories.push(...batch);
+      if (typeof page.total === 'number') {
+        total = page.total;
+      }
+      if (batch.length === 0) break;
+      startAt = histories.length;
+    }
+    histories.sort((a, b) => {
+      const ca = String(a.created ?? '');
+      const cb = String(b.created ?? '');
+      if (ca !== cb) return ca < cb ? -1 : 1;
+      return String(a.id ?? '').localeCompare(String(b.id ?? ''), undefined, { numeric: true });
+    });
+    return {
+      ...data,
+      changelog: {
+        ...changelog,
+        histories,
+        startAt: 0,
+        maxResults: histories.length,
+        total: histories.length,
+      },
+    };
   }
 
   async getBoardProgress(projectKey: string): Promise<JiraBoardProgress> {
@@ -117,15 +198,32 @@ export class JiraApiAdapter implements IJiraAdapter {
     return { total: data.issues.length, byStatus };
   }
 
-  async listIssuesByKeys(keys: string[]): Promise<JiraIssue[]> {
+  async listIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }): Promise<JiraIssue[]> {
     if (keys.length === 0) return [];
-    const jql = `key in ("${keys.join('","')}")`;
+
+    if (options?.includeChangelog) {
+      const trimmed = keys.map(k => k.trim()).filter(Boolean);
+      const uniq = [...new Set(trimmed)];
+      const encoded = uniq.map(k => encodeURIComponent(k));
+      const raws = await mapWithConcurrency(encoded, 6, key => this.fetchRawIssueWithFullChangelog(key));
+      const byKey = new Map(uniq.map((k, i) => [k.toUpperCase(), raws[i]!]));
+      return trimmed.map(k => {
+        const raw = byKey.get(k.toUpperCase());
+        if (!raw) {
+          throw new Error(`Missing Jira payload for key ${k}`);
+        }
+        return JiraResponseMapper.toIssue(raw as never);
+      });
+    }
+
+    const uniq = [...new Set(keys.map(k => k.trim()).filter(Boolean))];
+    const jql = `key in ("${uniq.join('","')}")`;
     const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
       '/search/jql',
       {
         jql,
-        fields: 'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks,customfield_10004',
-        maxResults: String(keys.length),
+        fields: ISSUE_FIELDS,
+        maxResults: String(uniq.length),
       },
     );
     return data.issues.map(i => JiraResponseMapper.toIssue(i as never));

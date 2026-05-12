@@ -21,6 +21,24 @@ export interface JiraLinkedIssue {
   issueType: string;
 }
 
+export interface JiraChangelogItem {
+  field: string;
+  fromString: string | null;
+  toString: string | null;
+}
+
+export interface JiraChangelogHistory {
+  id: string;
+  created: string;
+  author: string | null;
+  items: JiraChangelogItem[];
+}
+
+export interface JiraStatusDwell {
+  status: string;
+  businessDays: number;
+}
+
 export interface JiraIssue {
   id: string;
   key: string;
@@ -35,6 +53,9 @@ export interface JiraIssue {
   linkedIssues?: JiraLinkedIssue[];
   subtasks?: JiraLinkedIssue[];
   storyPoints?: number | null;
+  created?: string;
+  changelog?: JiraChangelogHistory[];
+  statusDwellBusinessDays?: JiraStatusDwell[];
 }
 
 export interface JiraSprint {
@@ -80,8 +101,8 @@ export interface IJiraAdapter {
   listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
   listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
-  getIssue(issueKey: string): Promise<JiraIssue>;
-  listIssuesByKeys(keys: string[]): Promise<JiraIssue[]>;
+  getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue>;
+  listIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
   getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
   listClockworkWorklogs(startingAt: string, endingAt: string, userAccountIds?: string[] | string, projectKeys?: string[]): Promise<ClockworkWorklog[]>;
   listBoardUsers(boardId: number): Promise<JiraUser[]>;

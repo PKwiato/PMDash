@@ -129,18 +129,39 @@ export function jiraRouter(
     }
   });
 
+  r.get('/issues/:issueKey', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const { issueKey } = req.params as { issueKey: string };
+      if (!issueKey?.trim()) {
+        res.status(400).json({ error: 'Invalid issue key' });
+        return;
+      }
+      const includeChangelog = req.query.includeChangelog === 'true';
+      const issue = await jiraAdapter.getIssue(issueKey, { includeChangelog });
+      res.json(issue);
+    } catch (e) {
+      next(e);
+    }
+  });
+
   r.post('/issues/bulk', async (req, res, next) => {
     try {
       if (!jiraAdapter) {
         res.status(503).json({ error: 'Jira not configured' });
         return;
       }
-      const { keys } = req.body as { keys: string[] };
+      const { keys, includeChangelog } = req.body as { keys: string[]; includeChangelog?: boolean };
       if (!Array.isArray(keys) || keys.length === 0) {
         res.json([]);
         return;
       }
-      const issues = await jiraAdapter.listIssuesByKeys(keys);
+      const issues = await jiraAdapter.listIssuesByKeys(keys, {
+        includeChangelog: includeChangelog === true,
+      });
       res.json(issues);
     } catch (e) {
       next(e);
