@@ -136,7 +136,8 @@
                 <td class="px-lg py-3">
                   <div class="flex items-center gap-2">
                     <div class="w-6 h-6 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center text-[10px] font-bold text-on-surface overflow-hidden">
-                      <span v-if="!issue.assignee" class="material-symbols-outlined text-xs opacity-50">person</span>
+                      <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                      <span v-else-if="!issue.assignee" class="material-symbols-outlined text-xs opacity-50">person</span>
                       <span v-else>{{ issue.assignee.charAt(0) }}</span>
                     </div>
                     <span class="text-xs font-medium text-on-surface/80">{{ issue.assignee || '—' }}</span>

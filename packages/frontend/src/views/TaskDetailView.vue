@@ -48,6 +48,10 @@
               <div>
                 <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Assignee</p>
                 <div class="flex items-center gap-2" v-if="issue.assignee">
+                  <div class="w-6 h-6 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0">
+                    <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                    <span v-else class="material-symbols-outlined text-[16px] text-slate-400">person</span>
+                  </div>
                   <span class="font-body-md text-body-md text-slate-900 font-medium">{{ issue.assignee }}</span>
                 </div>
                 <span v-else class="text-body-md text-slate-500">Unassigned</span>
@@ -247,8 +251,9 @@
             
             <div v-if="issue.comments && issue.comments.length > 0" class="space-y-6">
               <div v-for="comment in issue.comments" :key="comment.id" class="flex gap-4 group">
-                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-500 border border-slate-200">
-                  <span class="material-symbols-outlined text-[20px]">person</span>
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-500 border border-slate-200 overflow-hidden">
+                  <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" :alt="comment.author" class="w-full h-full object-cover" />
+                  <span v-else class="material-symbols-outlined text-[20px]">person</span>
                 </div>
                 <div class="flex-1 space-y-2">
                   <div class="flex items-center justify-between">

@@ -177,7 +177,10 @@
                   </td>
                   <td class="px-md py-3">
                     <div v-if="issue.assignee" class="flex items-center gap-2">
-                      <div class="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-[10px] text-white">{{ issue.assignee.charAt(0) }}</div>
+                      <div class="w-6 h-6 rounded-full overflow-hidden bg-primary-container flex items-center justify-center text-[10px] text-white">
+                        <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                        <template v-else>{{ issue.assignee.charAt(0) }}</template>
+                      </div>
                       <span class="text-body-sm">{{ issue.assignee }}</span>
                     </div>
                     <div v-else class="text-body-sm text-on-surface-variant">Unassigned</div>

@@ -60,6 +60,7 @@ export interface JiraBoardProjectDto {
 export interface JiraCommentDto {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   body: string;
   created: string;
 }
@@ -98,6 +99,7 @@ export interface JiraIssueDto {
   description: string | null;
   status: string;
   assignee: string | null;
+  assigneeAvatarUrl: string | null;
   priority: string;
   issueType: string;
   epicKey: string | null;

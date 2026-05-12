@@ -8,6 +8,7 @@ export interface JiraBoard {
 export interface JiraComment {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   body: string;
   created: string;
 }
@@ -46,6 +47,7 @@ export interface JiraIssue {
   description: string | null;
   status: string;
   assignee: string | null;
+  assigneeAvatarUrl: string | null;
   priority: string;
   issueType: string;
   epicKey: string | null;

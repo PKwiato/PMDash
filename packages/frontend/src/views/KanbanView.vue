@@ -36,7 +36,7 @@
           <!-- Cards List -->
           <div class="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-jira-v max-h-[calc(100vh-180px)]">
             <div v-for="issue in groupedIssues[status]" :key="issue.id" 
-              class="bg-surface-container-lowest border border-outline-variant p-3 rounded shadow-sm hover:shadow-md hover:border-secondary/50 transition-all cursor-pointer group"
+              class="bg-surface-container-lowest border border-outline-variant p-3 shadow-sm hover:shadow-md hover:border-secondary/50 transition-all cursor-pointer rounded-xl group"
               @click="router.push(`/tasks/${issue.key}`)">
               
               <!-- Summary (Main focus) -->
@@ -65,13 +65,16 @@
               <!-- Metadata Row 3: Points & Status Indicators -->
               <div class="flex items-center gap-2 mb-4">
                 <!-- Story Points -->
-                <div class="px-2 py-0.5 bg-surface-container text-[10px] font-bold text-on-surface border border-outline-variant rounded">
+                <div class="px-2 py-0.5 bg-surface-container text-[10px] font-bold text-on-surface border border-outline-variant rounded">SP:
                   {{ issue.storyPoints || '0' }}
                 </div>
                 
-                <!-- Dots / Progress (Simplified markers) -->
-                <div class="flex items-center gap-1">
-                  <div v-for="i in 3" :key="i" class="w-1.5 h-1.5 rounded-full" :class="i === 1 ? 'bg-error' : 'bg-outline-variant/30'"></div>
+                <!-- Time in Status -->
+                <div v-if="issue.currentStatusBusinessDays !== undefined" 
+                     class="flex items-center gap-1 px-2 py-0.5 bg-surface-container text-[10px] font-bold text-on-surface border border-outline-variant rounded"
+                     title="Business days in current status">
+                  <span class="material-symbols-outlined text-[14px] text-outline">schedule</span>
+                  {{ formatDwell(issue.currentStatusBusinessDays) }}d
                 </div>
 
                 <!-- Priority Icon -->
@@ -89,7 +92,8 @@
                 
                 <div v-if="issue.assignee" class="relative">
                   <div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant bg-secondary text-on-secondary flex items-center justify-center text-[10px] font-bold">
-                     {{ issue.assignee.charAt(0) }}
+                    <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                    <template v-else>{{ issue.assignee.charAt(0) }}</template>
                   </div>
                 </div>
               </div>
@@ -129,6 +133,11 @@ function priorityColor(priority: string) {
   if (priority === 'High' || priority === 'Highest') return 'text-error';
   if (priority === 'Medium') return 'text-amber-500';
   return 'text-emerald-500';
+}
+
+function formatDwell(days: number | undefined) {
+  if (days === undefined || !Number.isFinite(days)) return '—';
+  return days >= 10 ? days.toFixed(1) : days.toFixed(2);
 }
 
 async function refresh() {
