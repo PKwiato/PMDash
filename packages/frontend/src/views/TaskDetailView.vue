@@ -84,11 +84,11 @@
               </button>
             </div>
             <div
-              v-if="issue.statusDwellBusinessDays && issue.statusDwellBusinessDays.length > 0"
+              v-if="sortedStatusDwell && sortedStatusDwell.length > 0"
               class="flex flex-wrap gap-2"
             >
               <span
-                v-for="row in issue.statusDwellBusinessDays"
+                v-for="row in sortedStatusDwell"
                 :key="row.status"
                 class="inline-flex items-baseline gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-body-sm text-slate-800"
               >
@@ -400,6 +400,45 @@ const mentionedIssues = computed(() => {
   ]);
 
   return [...new Set(matches.filter(k => !existingKeys.has(k)))];
+});
+
+const sortedStatusDwell = computed(() => {
+  if (!issue.value?.statusDwellBusinessDays) return [];
+  
+  const order = ['to do', 'in progress', 'code review', 'testing', 'beta', 'done'];
+  
+  return [...issue.value.statusDwellBusinessDays].sort((a, b) => {
+    const nameA = a.status.toLowerCase();
+    const nameB = b.status.toLowerCase();
+    
+    let indexA = order.indexOf(nameA);
+    let indexB = order.indexOf(nameB);
+    
+    // Heuristic fallback for non-exact matches
+    if (indexA === -1) {
+      if (nameA.includes('zrobienia')) indexA = 0;
+      else if (nameA.includes('toku') || nameA.includes('dev')) indexA = 1;
+      else if (nameA.includes('review') || nameA.includes('przegląd')) indexA = 2;
+      else if (nameA.includes('test')) indexA = 3;
+      else if (nameA.includes('beta')) indexA = 4;
+      else if (nameA.includes('gotowe') || nameA.includes('done')) indexA = 5;
+    }
+    
+    if (indexB === -1) {
+      if (nameB.includes('zrobienia')) indexB = 0;
+      else if (nameB.includes('toku') || nameB.includes('dev')) indexB = 1;
+      else if (nameB.includes('review') || nameB.includes('przegląd')) indexB = 2;
+      else if (nameB.includes('test')) indexB = 3;
+      else if (nameB.includes('beta')) indexB = 4;
+      else if (nameB.includes('gotowe') || nameB.includes('done')) indexB = 5;
+    }
+
+    if (indexA === -1 && indexB === -1) return a.status.localeCompare(b.status);
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    
+    return indexA - indexB;
+  });
 });
 
 function getIssueFromStore(key: string) {
