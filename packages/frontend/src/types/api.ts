@@ -108,6 +108,8 @@ export interface JiraIssueDto {
   created?: string;
   changelog?: JiraChangelogHistoryDto[];
   statusDwellBusinessDays?: JiraStatusDwellDto[];
+  /** Dni robocze (UTC) w bieżącym statusie od ostatniej zmiany statusu w Jirze. */
+  currentStatusBusinessDays?: number;
 }
 
 export type JiraSprintScopeMode = 'active_sprint' | 'whole_board';

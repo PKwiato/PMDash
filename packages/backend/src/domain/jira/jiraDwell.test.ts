@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { businessDaysUtcBetween } from './businessDaysUtc';
 import {
+  businessDaysInCurrentStatusFromChangelog,
   extractStatusTransitions,
+  parseJiraDateMs,
   statusDwellBusinessDaysFromChangelog,
 } from './statusDwellFromChangelog';
 
@@ -42,6 +44,27 @@ test('statusDwellBusinessDaysFromChangelog aggregates repeated status', () => {
   const byName = Object.fromEntries(rows.map(r => [r.status, r.businessDays]));
   assert.ok(byName['To Do'] != null && byName['In Progress'] != null);
   assert.ok(byName['To Do']! > 0 && byName['In Progress']! > 0);
+});
+
+test('businessDaysInCurrentStatusFromChangelog uses last transition, not full lifetime', () => {
+  const created = '2024-06-01T10:00:00.000Z';
+  const histories = [
+    {
+      id: '1',
+      created: '2024-06-10T10:00:00.000Z',
+      items: [{ field: 'status', fromString: 'A', toString: 'B' }],
+    },
+    {
+      id: '2',
+      created: '2024-06-12T10:00:00.000Z',
+      items: [{ field: 'status', fromString: 'B', toString: 'A' }],
+    },
+  ];
+  const end = Date.UTC(2024, 5, 14, 10, 0, 0, 0);
+  const current = businessDaysInCurrentStatusFromChangelog(created, histories, end);
+  const sinceCreated = businessDaysUtcBetween(parseJiraDateMs(created), end);
+  assert.ok(current < sinceCreated);
+  assert.ok(current > 0);
 });
 
 test('extractStatusTransitions sorts by time', () => {

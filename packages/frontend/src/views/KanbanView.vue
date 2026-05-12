@@ -65,7 +65,17 @@
               </div>
             </div>
             
-            <h3 class="font-body-md font-semibold text-on-surface line-clamp-3 mb-3 leading-snug group-hover:text-secondary transition-colors">{{ issue.summary }}</h3>
+            <h3 class="font-body-md font-semibold text-on-surface line-clamp-3 mb-2 leading-snug group-hover:text-secondary transition-colors">{{ issue.summary }}</h3>
+
+            <div
+              v-if="issue.currentStatusBusinessDays != null"
+              class="flex items-center gap-1.5 text-[11px] text-on-surface-variant mb-2"
+              title="Dni robocze (pon.–pt., UTC) w bieżącym statusie Jiry od ostatniej zmiany kolumny/statusu"
+            >
+              <span class="material-symbols-outlined text-[15px] text-secondary shrink-0">schedule</span>
+              <span class="font-medium text-on-surface">{{ formatColumnWait(issue.currentStatusBusinessDays) }}</span>
+              <span class="text-on-surface-variant/80">w kolumnie</span>
+            </div>
             
             <div class="flex items-center justify-between mt-auto pt-2 border-t border-outline-variant">
               <div class="flex items-center gap-1.5">
@@ -103,15 +113,18 @@ const displayColumns: KanbanColumn[] = [...KANBAN_COLUMNS];
 
 const groupedIssues = computed(() => groupIssuesByKanbanColumn(jiraStore.issues));
 
+function formatColumnWait(days: number) {
+  if (!Number.isFinite(days)) return '—';
+  return days >= 10 ? `${days.toFixed(1)} d` : `${days.toFixed(2)} d`;
+}
+
 async function refresh() {
   await jiraStore.fetchConfig();
-  jiraStore.fetchIssuesForBoard();
+  await jiraStore.fetchIssuesForBoard(undefined, true, true);
 }
 
 onMounted(async () => {
-  if (jiraStore.issues.length === 0) {
-    await refresh();
-  }
+  await refresh();
 });
 </script>
 

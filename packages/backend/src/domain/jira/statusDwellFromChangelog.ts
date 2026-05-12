@@ -104,3 +104,27 @@ function rowsFromMap(m: Map<string, number>): StatusDwellRow[] {
     .filter(r => r.businessDays > 0)
     .sort((a, b) => b.businessDays - a.businessDays);
 }
+
+/**
+ * Business days (Mon–Fri UTC, fractional) from the last status change until `nowMs`.
+ * If there were no status transitions, uses [created, nowMs) — entire lifetime in first status.
+ */
+export function businessDaysInCurrentStatusFromChangelog(
+  issueCreatedIso: string,
+  histories: JiraChangelogHistoryInput[],
+  nowMs: number = Date.now(),
+): number {
+  const createdMs = parseJiraDateMs(issueCreatedIso);
+  const endMs = Number.isFinite(nowMs) ? nowMs : Date.now();
+  if (!Number.isFinite(createdMs) || endMs <= createdMs) {
+    return 0;
+  }
+
+  const transitions = extractStatusTransitions(histories);
+  if (transitions.length === 0) {
+    return businessDaysUtcBetween(createdMs, endMs);
+  }
+
+  const last = transitions[transitions.length - 1]!;
+  return businessDaysUtcBetween(last.atMs, endMs);
+}

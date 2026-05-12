@@ -112,17 +112,19 @@ export function jiraRouter(
         return;
       }
       const activeSprintOnly = req.query.activeSprintOnly === 'true';
+      const includeChangelog = req.query.includeChangelog === 'true';
+      const changelogOpts = { includeChangelog };
       if (activeSprintOnly) {
         const sprints = await jiraAdapter.listBoardSprints(boardId);
         const activeSprint = sprints.find(s => s.state === 'active');
         if (activeSprint) {
-          const issues = await jiraAdapter.listBoardIssues(boardId, activeSprint.id);
+          const issues = await jiraAdapter.listBoardIssues(boardId, activeSprint.id, changelogOpts);
           res.json(issues);
           return;
         }
       }
 
-      const issues = await jiraAdapter.listBoardIssues(boardId);
+      const issues = await jiraAdapter.listBoardIssues(boardId, undefined, changelogOpts);
       res.json(issues);
     } catch (e) {
       next(e);

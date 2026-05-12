@@ -85,7 +85,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     return out;
   }
 
-  async listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]> {
+  async listBoardIssues(boardId: number, sprintId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]> {
     const path = sprintId
       ? `/board/${boardId}/sprint/${sprintId}/issue`
       : `/board/${boardId}/issue`;
@@ -98,7 +98,18 @@ export class JiraApiAdapter implements IJiraAdapter {
       },
       'agile',
     );
-    return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
+    const mapped = data.issues.map(i => JiraResponseMapper.toIssue(i as never));
+    if (!options?.includeChangelog) {
+      return mapped;
+    }
+    const uniq = [...new Set(mapped.map(i => i.key))];
+    const encoded = uniq.map(k => encodeURIComponent(k));
+    const raws = await mapWithConcurrency(encoded, 6, key => this.fetchRawIssueWithFullChangelog(key));
+    const byKey = new Map(uniq.map((k, idx) => [k.toUpperCase(), raws[idx]!]));
+    return mapped.map(issue => {
+      const raw = byKey.get(issue.key.toUpperCase());
+      return raw ? JiraResponseMapper.toIssue(raw as never) : issue;
+    });
   }
 
   async listBoardSprints(boardId: number): Promise<JiraSprint[]> {

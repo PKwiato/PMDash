@@ -56,6 +56,8 @@ export interface JiraIssue {
   created?: string;
   changelog?: JiraChangelogHistory[];
   statusDwellBusinessDays?: JiraStatusDwell[];
+  /** Business days in the current Jira status since the last transition (UTC weekdays). */
+  currentStatusBusinessDays?: number;
 }
 
 export interface JiraSprint {
@@ -99,7 +101,7 @@ export interface JiraUser {
 export interface IJiraAdapter {
   listBoards(): Promise<JiraBoard[]>;
   listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
-  listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]>;
+  listBoardIssues(boardId: number, sprintId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
   getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue>;
   listIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;

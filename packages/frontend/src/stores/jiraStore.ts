@@ -10,14 +10,21 @@ import { api, getApiErrorMessage } from '../api/client';
  */
 function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): JiraIssueDto {
   if (!prev) return next;
-  const prevRich = prev.changelog !== undefined || prev.statusDwellBusinessDays !== undefined;
-  const nextLight = next.changelog === undefined && next.statusDwellBusinessDays === undefined;
+  const prevRich =
+    prev.changelog !== undefined ||
+    prev.statusDwellBusinessDays !== undefined ||
+    prev.currentStatusBusinessDays !== undefined;
+  const nextLight =
+    next.changelog === undefined &&
+    next.statusDwellBusinessDays === undefined &&
+    next.currentStatusBusinessDays === undefined;
   if (prevRich && nextLight) {
     return {
       ...next,
       created: next.created ?? prev.created,
       changelog: prev.changelog,
       statusDwellBusinessDays: prev.statusDwellBusinessDays,
+      currentStatusBusinessDays: prev.currentStatusBusinessDays,
     };
   }
   return next;
@@ -80,7 +87,7 @@ export const useJiraStore = defineStore('jira', () => {
     }
   }
 
-  async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true) {
+  async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true, includeChangelog = false) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
 
@@ -89,7 +96,10 @@ export const useJiraStore = defineStore('jira', () => {
     try {
       const [issuesResponse] = await Promise.all([
         api.get<JiraIssueDto[]>(`/jira/boards/${id}/issues`, {
-          params: { activeSprintOnly },
+          params: {
+            activeSprintOnly,
+            ...(includeChangelog ? { includeChangelog: 'true' } : {}),
+          },
         }),
         fetchSprintScope(id),
       ]);

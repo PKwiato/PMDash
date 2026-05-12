@@ -1,5 +1,8 @@
 import type { JiraChangelogHistory, JiraIssue } from '../../domain/ports/IJiraAdapter';
-import { statusDwellBusinessDaysFromChangelog } from '../../domain/jira/statusDwellFromChangelog';
+import {
+  businessDaysInCurrentStatusFromChangelog,
+  statusDwellBusinessDaysFromChangelog,
+} from '../../domain/jira/statusDwellFromChangelog';
 
 export class JiraResponseMapper {
   static toIssue(raw: {
@@ -75,6 +78,7 @@ export class JiraResponseMapper {
       issue.changelog = histories;
       if (created) {
         issue.statusDwellBusinessDays = statusDwellBusinessDaysFromChangelog(created, issue.status, histories);
+        issue.currentStatusBusinessDays = businessDaysInCurrentStatusFromChangelog(created, histories);
       }
     }
 
