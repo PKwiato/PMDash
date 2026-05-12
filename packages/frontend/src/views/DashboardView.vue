@@ -3,9 +3,9 @@
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-xl gap-4">
       <div>
-        <h1 class="font-headline-xl text-headline-xl text-on-surface">System Overview</h1>
-        <p class="font-body-md text-body-md text-on-primary-container mt-xs">Real-time status of monitored Jira instances and team performance.</p>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-sm max-w-2xl">{{ sprintContextLine }}</p>
+        <h1 class="font-headline-xl text-3xl font-bold text-on-surface tracking-tight">System Overview</h1>
+        <p class="font-body-md text-on-primary-container mt-1 opacity-80">Real-time status of monitored Jira instances and team performance.</p>
+        <p class="font-body-sm text-on-surface-variant mt-2 max-w-2xl">{{ sprintContextLine }}</p>
       </div>
 
       <div class="flex gap-sm w-full md:w-auto">
@@ -20,7 +20,7 @@
       </div>
     </div>
 
-    <!-- Stats Grid -->
+    <!-- Stats Grid Row 1 -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-gutter">
       <!-- Total Tasks -->
       <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-2xl shadow-sm flex items-center gap-lg">
@@ -72,8 +72,6 @@
             <span class="text-[10px] font-bold text-on-primary-container tracking-wider uppercase">Done</span>
           </div>
         </div>
-        <div class="text-headline-lg font-headline-lg text-on-surface">{{ inFlightCount }}</div>
-        <div class="text-body-sm font-body-sm text-on-primary-container">In flight</div>
       </div>
     </div>
 
@@ -85,7 +83,7 @@
         </div>
         <div>
           <div class="flex items-baseline gap-2">
-            <span class="text-3xl font-bold text-on-surface leading-none">{{ storyPointsDone }}</span>
+            <span class="text-3xl font-bold text-on-surface leading-none">{{ storyPointsDoneDisplay }}</span>
             <span class="text-[10px] font-bold text-on-primary-container tracking-wider uppercase">Story Points (Done)</span>
           </div>
         </div>
@@ -97,32 +95,10 @@
         </div>
         <div>
           <div class="flex items-baseline gap-2">
-            <span class="text-3xl font-bold text-on-surface leading-none">{{ storyPointsTotal }}</span>
+            <span class="text-3xl font-bold text-on-surface leading-none">{{ storyPointsTotalDisplay }}</span>
             <span class="text-[10px] font-bold text-on-primary-container tracking-wider uppercase">Story Points (Total)</span>
           </div>
         </div>
-        <div class="text-headline-lg font-headline-lg text-on-surface">{{ doneCount }}</div>
-        <div class="text-body-sm font-body-sm text-on-primary-container">Done</div>
-      </div>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-gutter mb-xl">
-      <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-md">
-          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
-            <span class="material-symbols-outlined">pie_chart</span>
-          </div>
-        </div>
-        <div class="text-headline-lg font-headline-lg text-on-surface">{{ storyPointsDoneDisplay }}</div>
-        <div class="text-body-sm font-body-sm text-on-primary-container">Story points (done)</div>
-      </div>
-      <div class="bg-surface-container-lowest border border-outline-variant p-lg rounded-xl shadow-sm">
-        <div class="flex items-center justify-between mb-md">
-          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant">
-            <span class="material-symbols-outlined">analytics</span>
-          </div>
-        </div>
-        <div class="text-headline-lg font-headline-lg text-on-surface">{{ storyPointsTotalDisplay }}</div>
-        <div class="text-body-sm font-body-sm text-on-primary-container">Story points (total)</div>
       </div>
     </div>
 
@@ -147,10 +123,12 @@
               <tr v-for="issue in recentIssues" :key="issue.id" 
                   class="group hover:bg-surface-container transition-colors cursor-pointer"
                   @click="$router.push(`/tasks/${issue.key}`)">
-                <td class="px-lg py-md font-label-md text-secondary">{{ issue.key }}</td>
-                <td class="px-lg py-md font-body-md text-on-surface">{{ issue.summary }}</td>
-                <td class="px-lg py-md">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="statusChipClass(issue)">{{ issue.status }}</span>
+                <td class="px-xl py-lg text-sm font-bold text-on-surface group-hover:text-secondary transition-colors">{{ issue.key }}</td>
+                <td class="px-xl py-lg text-sm text-on-surface/90 font-medium">{{ issue.summary }}</td>
+                <td class="px-xl py-lg text-center">
+                  <span class="px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider inline-block min-w-[80px]" :class="statusChipClass(issue)">
+                    {{ issue.status }}
+                  </span>
                 </td>
                 <td class="px-xl py-lg">
                   <div class="flex items-center gap-3">
@@ -216,27 +194,28 @@
         </div>
       </div>
     </div>
-    <!-- Team Activity / Analytics Preview -->
+    
+    <!-- Analytics Preview (Optional Footer Section) -->
     <div class="mt-xl grid grid-cols-1 md:grid-cols-3 gap-gutter">
-      <div class="md:col-span-3 bg-primary-container text-white rounded-xl p-xl relative overflow-hidden">
+      <div class="md:col-span-3 bg-primary-container text-white rounded-2xl p-xl relative overflow-hidden shadow-lg shadow-primary-container/20">
         <div class="relative z-10">
           <div class="inline-flex items-center gap-sm bg-teal-600 text-teal-100 px-md py-1 rounded-full text-label-sm mb-md">
             <span class="material-symbols-outlined text-sm">trending_up</span>
             System Health: Optimal
           </div>
-          <h2 class="font-headline-xl text-headline-xl mb-md">All systems operational</h2>
-          <div class="flex gap-xl">
-            <div>
-              <div class="text-label-sm opacity-60 uppercase mb-1">Issues in scope</div>
-              <div class="text-headline-md">{{ jiraStore.issues.length }}</div>
+          <h2 class="text-2xl font-bold mb-md">All systems operational</h2>
+          <div class="flex gap-xl overflow-x-auto pb-2">
+            <div class="shrink-0">
+              <div class="text-[10px] opacity-60 uppercase font-bold tracking-widest mb-1">Issues in scope</div>
+              <div class="text-2xl font-bold">{{ jiraStore.issues.length }}</div>
             </div>
-            <div>
-              <div class="text-label-sm opacity-60 uppercase mb-1">Sync Success</div>
-              <div class="text-headline-md">100%</div>
+            <div class="shrink-0">
+              <div class="text-[10px] opacity-60 uppercase font-bold tracking-widest mb-1">Sync Success</div>
+              <div class="text-2xl font-bold">100%</div>
             </div>
-            <div>
-              <div class="text-label-sm opacity-60 uppercase mb-1">Uptime</div>
-              <div class="text-headline-md">99.98%</div>
+            <div class="shrink-0">
+              <div class="text-[10px] opacity-60 uppercase font-bold tracking-widest mb-1">Uptime</div>
+              <div class="text-2xl font-bold">99.98%</div>
             </div>
           </div>
         </div>
@@ -246,9 +225,9 @@
       </div>
     </div>
 
-    <!-- Contextual FAB (Only on dashboard/home) -->
-    <button class="fixed bottom-xl right-xl w-14 h-14 bg-secondary text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-50">
-      <span class="material-symbols-outlined text-3xl">add</span>
+    <!-- Floating Action Button -->
+    <button class="fixed bottom-8 right-8 w-16 h-16 bg-secondary text-on-secondary rounded-2xl shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group">
+      <span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform">add</span>
     </button>
   </div>
 </template>
@@ -265,10 +244,10 @@ const notesStore = useNotesStore();
 
 function statusChipClass(issue: JiraIssueDto) {
   const b = metricBucketForIssue(issue.status);
-  if (b === 'done') return 'bg-green-500/20 text-green-500';
-  if (b === 'inFlight') return 'bg-blue-500/20 text-blue-500';
-  if (b === 'blocked') return 'bg-error/20 text-error';
-  return 'bg-outline-variant text-on-surface-variant';
+  if (b === 'done') return 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400';
+  if (b === 'inFlight') return 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400';
+  if (b === 'blocked') return 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400';
+  return 'bg-surface-container-high text-on-surface-variant';
 }
 
 const inFlightCount = computed(
@@ -318,15 +297,6 @@ const sprintContextLine = computed(() => {
 
 const recentIssues = computed(() => jiraStore.issues.slice(0, 5));
 const recentNotes = computed(() => notesStore.notes.slice(0, 4));
-
-// Helpers
-const statusClass = (status: string) => {
-  const s = status.toLowerCase();
-  if (['done', 'resolved', 'zakończone'].includes(s)) return 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400';
-  if (['in progress', 'in flight', 'testowanie', 'beta'].includes(s)) return 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400';
-  if (s.includes('block')) return 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400';
-  return 'bg-surface-container-high text-on-surface-variant';
-};
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
