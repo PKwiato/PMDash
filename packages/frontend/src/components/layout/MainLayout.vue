@@ -4,9 +4,6 @@
     <header class="fixed top-0 w-full z-50 border-b border-outline-variant bg-surface shadow-sm flex justify-between items-center h-14 px-4 font-sans text-sm antialiased">
       <div class="flex items-center gap-8">
         <span class="text-lg font-bold tracking-tight text-on-surface">JiraMonitor</span>
-        <div class="hidden md:flex items-center gap-6">
-          <router-link to="/notes" class="text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-200 h-14 flex items-center px-2" active-class="text-teal-600 dark:text-teal-400 font-bold border-b-2 border-teal-600">Private Notes</router-link>
-        </div>
       </div>
 
       <!-- Center: Board Info -->
