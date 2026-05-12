@@ -68,6 +68,38 @@ export function jiraRouter(
     }
   });
 
+  r.get('/boards/:boardId/sprint-scope', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const boardId = Number((req.params as { boardId: string }).boardId);
+      if (!Number.isFinite(boardId) || boardId < 1) {
+        res.status(400).json({ error: 'Invalid boardId' });
+        return;
+      }
+      const sprints = await jiraAdapter.listBoardSprints(boardId);
+      const activeSprint = sprints.find(s => s.state === 'active');
+      if (activeSprint) {
+        res.json({
+          mode: 'active_sprint' as const,
+          sprint: {
+            id: activeSprint.id,
+            name: activeSprint.name,
+            state: activeSprint.state,
+            startDate: activeSprint.startDate || null,
+            endDate: activeSprint.endDate || null,
+          },
+        });
+        return;
+      }
+      res.json({ mode: 'whole_board' as const, sprint: null });
+    } catch (e) {
+      next(e);
+    }
+  });
+
   r.get('/boards/:boardId/issues', async (req, res, next) => {
     try {
       if (!jiraAdapter) {
@@ -80,18 +112,39 @@ export function jiraRouter(
         return;
       }
       const activeSprintOnly = req.query.activeSprintOnly === 'true';
+      const includeChangelog = req.query.includeChangelog === 'true';
+      const changelogOpts = { includeChangelog };
       if (activeSprintOnly) {
         const sprints = await jiraAdapter.listBoardSprints(boardId);
         const activeSprint = sprints.find(s => s.state === 'active');
         if (activeSprint) {
-          const issues = await jiraAdapter.listBoardIssues(boardId, activeSprint.id);
+          const issues = await jiraAdapter.listBoardIssues(boardId, activeSprint.id, changelogOpts);
           res.json(issues);
           return;
         }
       }
 
-      const issues = await jiraAdapter.listBoardIssues(boardId);
+      const issues = await jiraAdapter.listBoardIssues(boardId, undefined, changelogOpts);
       res.json(issues);
+    } catch (e) {
+      next(e);
+    }
+  });
+
+  r.get('/issues/:issueKey', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const { issueKey } = req.params as { issueKey: string };
+      if (!issueKey?.trim()) {
+        res.status(400).json({ error: 'Invalid issue key' });
+        return;
+      }
+      const includeChangelog = req.query.includeChangelog === 'true';
+      const issue = await jiraAdapter.getIssue(issueKey, { includeChangelog });
+      res.json(issue);
     } catch (e) {
       next(e);
     }
@@ -103,12 +156,14 @@ export function jiraRouter(
         res.status(503).json({ error: 'Jira not configured' });
         return;
       }
-      const { keys } = req.body as { keys: string[] };
+      const { keys, includeChangelog } = req.body as { keys: string[]; includeChangelog?: boolean };
       if (!Array.isArray(keys) || keys.length === 0) {
         res.json([]);
         return;
       }
-      const issues = await jiraAdapter.listIssuesByKeys(keys);
+      const issues = await jiraAdapter.listIssuesByKeys(keys, {
+        includeChangelog: includeChangelog === true,
+      });
       res.json(issues);
     } catch (e) {
       next(e);

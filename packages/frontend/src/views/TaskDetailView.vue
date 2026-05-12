@@ -65,6 +65,73 @@
               </div>
             </div>
           </div>
+
+          <div class="space-y-3 pt-2 border-t border-slate-100">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h3 class="font-headline-md text-headline-md text-slate-900">Czas w statusach</h3>
+                <p class="text-label-sm text-slate-500 mt-0.5">
+                  Dni robocze (pon.–pt., granice dni w UTC), weekendy pominięte
+                </p>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 px-3 py-2 border border-slate-200 rounded-lg font-label-md text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                @click="changelogOpen = !changelogOpen"
+              >
+                <span class="material-symbols-outlined text-[18px]">history</span>
+                {{ changelogOpen ? 'Zamknij changelog' : 'Pełny changelog Jira' }}
+              </button>
+            </div>
+            <div
+              v-if="issue.statusDwellBusinessDays && issue.statusDwellBusinessDays.length > 0"
+              class="flex flex-wrap gap-2"
+            >
+              <span
+                v-for="row in issue.statusDwellBusinessDays"
+                :key="row.status"
+                class="inline-flex items-baseline gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-body-sm text-slate-800"
+              >
+                <span class="font-medium">{{ row.status }}</span>
+                <span class="text-slate-500">·</span>
+                <span class="tabular-nums text-secondary font-semibold">{{ formatDwell(row.businessDays) }}</span>
+                <span class="text-slate-500 text-label-sm">dni rob.</span>
+              </span>
+            </div>
+            <p v-else class="text-body-sm text-slate-400 italic">Brak danych do podsumowania czasu w statusach.</p>
+
+            <div
+              v-if="changelogOpen"
+              class="border border-slate-200 rounded-xl bg-slate-50/80 max-h-[28rem] overflow-y-auto custom-scrollbar p-4 space-y-4"
+            >
+              <template v-if="issue.changelog && issue.changelog.length > 0">
+                <div
+                  v-for="(h, idx) in issue.changelog"
+                  :key="h.id + '-' + h.created + '-' + idx"
+                  class="border-b border-slate-200/80 last:border-0 pb-4 last:pb-0"
+                >
+                  <div class="flex flex-wrap items-center gap-2 text-label-sm text-slate-500 mb-2">
+                    <span class="font-medium text-slate-800">{{ formatDate(h.created) }}</span>
+                    <span v-if="h.author">· {{ h.author }}</span>
+                  </div>
+                  <ul class="space-y-1.5 font-body-sm text-slate-700">
+                    <li v-for="(it, j) in h.items" :key="j" class="flex flex-wrap gap-x-2 gap-y-1">
+                      <span class="text-slate-500 uppercase tracking-wide text-[10px]">{{ it.field }}</span>
+                      <span v-if="it.fromString != null || it.toString != null" class="break-words">
+                        <template v-if="it.fromString != null">
+                          <span class="text-slate-600">{{ it.fromString }}</span>
+                          <span class="mx-1 text-slate-400">→</span>
+                        </template>
+                        <span class="text-slate-900 font-medium">{{ it.toString ?? '—' }}</span>
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </template>
+              <p v-else class="text-body-sm text-slate-400">Brak wpisów w changelogu.</p>
+            </div>
+          </div>
+
           <!-- Description Section -->
           <div class="space-y-3">
             <h3 class="font-headline-md text-headline-md text-slate-900">Description</h3>
@@ -283,6 +350,7 @@ const loading = ref(true);
 const saving = ref(false);
 const isDirty = ref(false);
 const noteBody = ref('');
+const changelogOpen = ref(false);
 
 // Resizing logic
 const rightPanelWidth = ref(450);
@@ -363,6 +431,11 @@ function formatDate(dateStr: string) {
   });
 }
 
+function formatDwell(days: number) {
+  if (!Number.isFinite(days)) return '—';
+  return days >= 10 ? days.toFixed(1) : days.toFixed(2);
+}
+
 async function saveNote() {
   if (!issue.value) return;
   
@@ -438,7 +511,7 @@ onMounted(async () => {
   
   // Parallel fetch
   await Promise.all([
-    jiraStore.fetchIssuesByKeys([issueId.value]),
+    jiraStore.fetchIssueByKey(issueId.value, { includeChangelog: true }),
     notesStore.fetchAllNotes(),
     projectsStore.fetchProjects()
   ]);

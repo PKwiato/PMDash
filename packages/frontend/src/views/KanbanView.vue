@@ -65,7 +65,17 @@
               </div>
             </div>
             
-            <h3 class="font-body-md font-semibold text-on-surface line-clamp-3 mb-3 leading-snug group-hover:text-secondary transition-colors">{{ issue.summary }}</h3>
+            <h3 class="font-body-md font-semibold text-on-surface line-clamp-3 mb-2 leading-snug group-hover:text-secondary transition-colors">{{ issue.summary }}</h3>
+
+            <div
+              v-if="issue.currentStatusBusinessDays != null"
+              class="flex items-center gap-1.5 text-[11px] text-on-surface-variant mb-2"
+              title="Dni robocze (pon.–pt., UTC) w bieżącym statusie Jiry od ostatniej zmiany kolumny/statusu"
+            >
+              <span class="material-symbols-outlined text-[15px] text-secondary shrink-0">schedule</span>
+              <span class="font-medium text-on-surface">{{ formatColumnWait(issue.currentStatusBusinessDays) }}</span>
+              <span class="text-on-surface-variant/80">w kolumnie</span>
+            </div>
             
             <div class="flex items-center justify-between mt-auto pt-2 border-t border-outline-variant">
               <div class="flex items-center gap-1.5">
@@ -94,91 +104,27 @@
 import { onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
+import { KANBAN_COLUMNS, groupIssuesByKanbanColumn, type KanbanColumn } from '../utils/jiraIssueStatus';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
 
-const defaultColumns = ['Do zrobienia', 'W toku', 'Code Review', 'Testowanie', 'Beta', 'Gotowe'];
+const displayColumns: KanbanColumn[] = [...KANBAN_COLUMNS];
 
-const statusMapping: Record<string, string> = {
-  // Do zrobienia
-  'to do': 'Do zrobienia',
-  'open': 'Do zrobienia',
-  'backlog': 'Do zrobienia',
-  'selected for development': 'Do zrobienia',
-  'do zrobienia': 'Do zrobienia',
-  'otwarte': 'Do zrobienia',
-  // W toku
-  'in progress': 'W toku',
-  'development': 'W toku',
-  'running': 'W toku',
-  'in dev': 'W toku',
-  'w toku': 'W toku',
-  'w pracy': 'W toku',
-  // Code Review
-  'code review': 'Code Review',
-  'review': 'Code Review',
-  'peer review': 'Code Review',
-  'in review': 'Code Review',
-  'do przeglądu': 'Code Review',
-  // Testowanie
-  'testing': 'Testowanie',
-  'qa': 'Testowanie',
-  'test': 'Testowanie',
-  'ready for qa': 'Testowanie',
-  'qa ready': 'Testowanie',
-  'ready for test': 'Testowanie',
-  'ready for testing': 'Testowanie',
-  'to test': 'Testowanie',
-  'testowanie': 'Testowanie',
-  // Beta
-  'beta': 'Beta',
-  'staging': 'Beta',
-  // Gotowe
-  'done': 'Gotowe',
-  'closed': 'Gotowe',
-  'resolved': 'Gotowe',
-  'finished': 'Gotowe',
-  'gotowe': 'Gotowe',
-  'zrobione': 'Gotowe',
-  'ukończone': 'Gotowe',
-  'zamknięte': 'Gotowe'
-};
+const groupedIssues = computed(() => groupIssuesByKanbanColumn(jiraStore.issues));
 
-const groupedIssues = computed(() => {
-  const groups: Record<string, any[]> = {};
-  
-  // Initialize with default columns
-  defaultColumns.forEach(c => groups[c] = []);
-  
-  jiraStore.issues.forEach(issue => {
-    const rawStatus = issue.status || 'To Do';
-    const normalizedStatus = rawStatus.toLowerCase().trim();
-    
-    const mappedStatus = statusMapping[normalizedStatus] || 
-                        (normalizedStatus.includes('done') || normalizedStatus.includes('zrobione') ? 'Gotowe' : 'Do zrobienia');
-    
-    if (groups[mappedStatus]) {
-      groups[mappedStatus].push(issue);
-    } else {
-      groups['Do zrobienia'].push(issue);
-    }
-  });
-  
-  return groups;
-});
-
-const displayColumns = computed(() => defaultColumns);
+function formatColumnWait(days: number) {
+  if (!Number.isFinite(days)) return '—';
+  return days >= 10 ? `${days.toFixed(1)} d` : `${days.toFixed(2)} d`;
+}
 
 async function refresh() {
   await jiraStore.fetchConfig();
-  jiraStore.fetchIssuesForBoard();
+  await jiraStore.fetchIssuesForBoard(undefined, true, true);
 }
 
 onMounted(async () => {
-  if (jiraStore.issues.length === 0) {
-    await refresh();
-  }
+  await refresh();
 });
 </script>
 
