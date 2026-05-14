@@ -174,8 +174,14 @@ import { useClockworkStore } from '../stores/clockworkStore';
 const jiraStore = useJiraStore();
 const clockworkStore = useClockworkStore();
 
-const dateFrom = ref(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-const dateTo = ref(new Date().toISOString().split('T')[0]);
+const now = new Date();
+const yesterday = new Date(now);
+yesterday.setDate(now.getDate() - 1);
+const dayBeforeYesterday = new Date(now);
+dayBeforeYesterday.setDate(now.getDate() - 2);
+
+const dateFrom = ref(dayBeforeYesterday.toISOString().split('T')[0]);
+const dateTo = ref(yesterday.toISOString().split('T')[0]);
 const selectedBoardId = ref<number | null>(null);
 
 const expandedUsers = ref(new Set<string>());
