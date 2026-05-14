@@ -112,6 +112,8 @@ export interface JiraIssueDto {
   statusDwellBusinessDays?: JiraStatusDwellDto[];
   /** Dni robocze (UTC) w bieżącym statusie od ostatniej zmiany statusu w Jirze. */
   currentStatusBusinessDays?: number;
+  /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
+  returnsCount?: number;
 }
 
 export type JiraSprintScopeMode = 'active_sprint' | 'whole_board';

@@ -60,6 +60,8 @@ export interface JiraIssue {
   statusDwellBusinessDays?: JiraStatusDwell[];
   /** Business days in the current Jira status since the last transition (UTC weekdays). */
   currentStatusBusinessDays?: number;
+  /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
+  returnsCount?: number;
 }
 
 export interface JiraSprint {

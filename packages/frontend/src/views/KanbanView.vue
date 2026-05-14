@@ -77,6 +77,14 @@
                   {{ formatDwell(issue.currentStatusBusinessDays) }}d
                 </div>
 
+                <!-- Returns Count -->
+                <div v-if="issue.returnsCount" 
+                     class="flex items-center gap-1 px-2 py-0.5 bg-error/10 text-[10px] font-black text-error border border-error/20 rounded animate-pulse"
+                     title="Returns from testing/later stages">
+                  <span class="material-symbols-outlined text-[14px]">replay</span>
+                  {{ issue.returnsCount }}
+                </div>
+
                 <!-- Priority Icon -->
                 <span class="material-symbols-outlined text-[18px] ml-auto" :class="priorityColor(issue.priority)">
                   {{ priorityIcon(issue.priority) }}

@@ -128,3 +128,64 @@ export function businessDaysInCurrentStatusFromChangelog(
   const last = transitions[transitions.length - 1]!;
   return businessDaysUtcBetween(last.atMs, endMs);
 }
+
+const STATUS_ORDER: Record<string, number> = {
+  'to do': 0,
+  'do zrobienia': 0,
+  'open': 0,
+  'otwarte': 0,
+  'backlog': 0,
+  'selected for development': 0,
+  'in progress': 1,
+  'w toku': 1,
+  'development': 1,
+  'w pracy': 1,
+  'in dev': 1,
+  'running': 1,
+  'code review': 2,
+  'do przeglądu': 2,
+  'review': 2,
+  'in review': 2,
+  'testing': 3,
+  'testowanie': 3,
+  'qa': 3,
+  'test': 3,
+  'ready for qa': 3,
+  'to test': 3,
+  'beta': 4,
+  'staging': 4,
+  'done': 5,
+  'gotowe': 5,
+  'zrobione': 5,
+  'closed': 5,
+  'resolved': 5,
+  'zamknięte': 5,
+};
+
+function getStatusOrder(status: string | null | undefined): number {
+  if (!status) return 0;
+  const s = status.toLowerCase().trim();
+  if (STATUS_ORDER[s] !== undefined) return STATUS_ORDER[s];
+  if (s.includes('test')) return 3;
+  if (s.includes('review')) return 2;
+  if (s.includes('prog') || s.includes('toku') || s.includes('dev')) return 1;
+  if (s.includes('done') || s.includes('gotowe') || s.includes('zrobion')) return 5;
+  return 0;
+}
+
+/**
+ * Counts how many times an issue moved from a "right" status to a "left" status.
+ * e.g., from Testing (3) to In Progress (1).
+ */
+export function returnsCountFromChangelog(histories: JiraChangelogHistoryInput[]): number {
+  const transitions = extractStatusTransitions(histories);
+  let count = 0;
+  for (const tr of transitions) {
+    const fromOrder = getStatusOrder(tr.fromStatus);
+    const toOrder = getStatusOrder(tr.toStatus);
+    if (toOrder < fromOrder) {
+      count++;
+    }
+  }
+  return count;
+}

@@ -13,11 +13,13 @@ function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): 
   const prevRich =
     prev.changelog !== undefined ||
     prev.statusDwellBusinessDays !== undefined ||
-    prev.currentStatusBusinessDays !== undefined;
+    prev.currentStatusBusinessDays !== undefined ||
+    prev.returnsCount !== undefined;
   const nextLight =
     next.changelog === undefined &&
     next.statusDwellBusinessDays === undefined &&
-    next.currentStatusBusinessDays === undefined;
+    next.currentStatusBusinessDays === undefined &&
+    next.returnsCount === undefined;
   if (prevRich && nextLight) {
     return {
       ...next,
@@ -25,6 +27,7 @@ function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): 
       changelog: prev.changelog,
       statusDwellBusinessDays: prev.statusDwellBusinessDays,
       currentStatusBusinessDays: prev.currentStatusBusinessDays,
+      returnsCount: prev.returnsCount,
     };
   }
   return next;
