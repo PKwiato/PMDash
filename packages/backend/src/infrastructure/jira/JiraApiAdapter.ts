@@ -1,5 +1,4 @@
 import type {
-  ClockworkWorklog,
   IJiraAdapter,
   JiraBoard,
   JiraBoardProgress,
@@ -129,51 +128,6 @@ export class JiraApiAdapter implements IJiraAdapter {
       },
     );
     return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
-  }
-
-  async listClockworkWorklogs(startingAt: string, endingAt: string, userAccountId?: string, projectKeys?: string[]): Promise<ClockworkWorklog[]> {
-    // 1. Find all issues that have worklogs in the date range, restricted to specific projects if provided
-    let jql = `worklogDate >= "${startingAt}" AND worklogDate <= "${endingAt}"`;
-    if (projectKeys && projectKeys.length > 0) {
-      jql = `project in (${projectKeys.join(',')}) AND ${jql}`;
-    }
-
-    const data = await this.client.get<{ issues: Array<{ id: string; key: string }> }>(
-      '/search/jql',
-      { jql, fields: 'key', maxResults: '100' },
-      'api'
-    );
-
-    const out: ClockworkWorklog[] = [];
-    
-    // 2. For each issue, fetch its worklogs
-    // Note: This can be slow for many issues, but it's the most reliable way without a dedicated Clockwork token.
-    for (const issue of data.issues) {
-      const wlData = await this.client.get<{ worklogs: Array<Record<string, any>> }>(
-        `/issue/${issue.key}/worklog`,
-        {},
-        'api'
-      );
-
-      for (const w of wlData.worklogs) {
-        const startedDate = w.started.split('T')[0];
-        if (startedDate >= startingAt && startedDate <= endingAt) {
-          if (!userAccountId || w.author.accountId === userAccountId) {
-            out.push({
-              id: Number(w.id),
-              issueKey: issue.key,
-              userAccountId: w.author.accountId,
-              userName: w.author.displayName,
-              date: startedDate,
-              timeSpentSeconds: w.timeSpentSeconds,
-              description: w.comment || '',
-              started: w.started,
-            });
-          }
-        }
-      }
-    }
-    return out;
   }
 
   async listBoardUsers(boardId: number): Promise<JiraUser[]> {

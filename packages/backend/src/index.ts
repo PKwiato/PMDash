@@ -29,6 +29,9 @@ async function bootstrap() {
     if (!config.jira.token) {
       console.warn('Jira not configured. Edit data/config.json');
     }
+    if (!config.clockwork?.token?.trim()) {
+      console.warn('Clockwork not configured. Edit data/config.json');
+    }
   });
 }
 

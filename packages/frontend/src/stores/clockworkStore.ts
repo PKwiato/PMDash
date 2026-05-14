@@ -39,7 +39,9 @@ export const useClockworkStore = defineStore('clockwork', {
         });
         this.analysis = response.data;
       } catch (err: any) {
-        this.error = err.response?.data?.error || 'Failed to fetch analysis';
+        const details = err.response?.data?.details;
+        const error = err.response?.data?.error;
+        this.error = details ? `${error}: ${details}` : error || 'Failed to fetch analysis';
         console.error('Error fetching clockwork analysis:', err);
       } finally {
         this.loading = false;

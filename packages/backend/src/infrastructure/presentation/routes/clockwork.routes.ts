@@ -1,13 +1,24 @@
 import { Router } from 'express';
 import { WorklogAnalysisService } from '../../../application/services/WorklogAnalysisService';
-import { IJiraAdapter } from '../../../domain/ports/IJiraAdapter';
+import type { IJiraAdapter } from '../../../domain/ports/IJiraAdapter';
+import { ConfigStore } from '../../config/ConfigStore';
+import { createClockworkAdapter } from '../../clockwork/createClockworkAdapter';
 
-export function clockworkRouter(jiraAdapter: IJiraAdapter | null) {
+export function clockworkRouter(
+  jiraAdapter: IJiraAdapter | null,
+  dataDir: string,
+) {
   const router = Router();
 
   router.get('/analysis', async (req, res) => {
     if (!jiraAdapter) {
-      return res.status(400).json({ error: 'Jira not configured' });
+      return res.status(503).json({ error: 'Jira not configured' });
+    }
+
+    const config = await ConfigStore.load(dataDir);
+    const clockworkAdapter = createClockworkAdapter(config);
+    if (!clockworkAdapter) {
+      return res.status(503).json({ error: 'Clockwork not configured' });
     }
 
     const { boardId, dateFrom, dateTo } = req.query;
@@ -17,7 +28,7 @@ export function clockworkRouter(jiraAdapter: IJiraAdapter | null) {
     }
 
     try {
-      const service = new WorklogAnalysisService(jiraAdapter);
+      const service = new WorklogAnalysisService(jiraAdapter, clockworkAdapter);
       const analysis = await service.analyzeBoard(
         Number(boardId),
         String(dateFrom),
