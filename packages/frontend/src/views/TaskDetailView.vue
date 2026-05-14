@@ -44,7 +44,7 @@
                 </span>
               </div>
             </div>
-            <div class="grid grid-cols-3 gap-6 py-4 border-y border-slate-100">
+            <div class="grid gap-6 py-4 border-y border-slate-100" :class="issue.returnsCount ? 'grid-cols-4' : 'grid-cols-3'">
               <div>
                 <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Assignee</p>
                 <div class="flex items-center gap-2" v-if="issue.assignee">
@@ -66,6 +66,13 @@
                   {{ issue.storyPoints }}
                 </span>
                 <span v-else class="text-body-md text-slate-400 italic">None</span>
+              </div>
+              <div v-if="issue.returnsCount">
+                <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Returns</p>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-error/10 text-error rounded font-black text-body-md border border-error/20 animate-pulse" title="Returns from testing/later stages">
+                  <span class="material-symbols-outlined text-[18px]">replay</span>
+                  {{ issue.returnsCount }}
+                </div>
               </div>
             </div>
           </div>
