@@ -8,6 +8,7 @@ export interface JiraBoard {
 export interface JiraComment {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   body: string;
   created: string;
 }
@@ -21,6 +22,24 @@ export interface JiraLinkedIssue {
   issueType: string;
 }
 
+export interface JiraChangelogItem {
+  field: string;
+  fromString: string | null;
+  toString: string | null;
+}
+
+export interface JiraChangelogHistory {
+  id: string;
+  created: string;
+  author: string | null;
+  items: JiraChangelogItem[];
+}
+
+export interface JiraStatusDwell {
+  status: string;
+  businessDays: number;
+}
+
 export interface JiraIssue {
   id: string;
   key: string;
@@ -28,6 +47,7 @@ export interface JiraIssue {
   description: string | null;
   status: string;
   assignee: string | null;
+  assigneeAvatarUrl: string | null;
   priority: string;
   issueType: string;
   epicKey: string | null;
@@ -35,6 +55,13 @@ export interface JiraIssue {
   linkedIssues?: JiraLinkedIssue[];
   subtasks?: JiraLinkedIssue[];
   storyPoints?: number | null;
+  created?: string;
+  changelog?: JiraChangelogHistory[];
+  statusDwellBusinessDays?: JiraStatusDwell[];
+  /** Business days in the current Jira status since the last transition (UTC weekdays). */
+  currentStatusBusinessDays?: number;
+  /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
+  returnsCount?: number;
 }
 
 export interface JiraSprint {
@@ -78,10 +105,11 @@ export interface JiraUser {
 export interface IJiraAdapter {
   listBoards(): Promise<JiraBoard[]>;
   listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
-  listBoardIssues(boardId: number, sprintId?: number): Promise<JiraIssue[]>;
+  listBoardIssues(boardId: number, sprintId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
-  getIssue(issueKey: string): Promise<JiraIssue>;
-  listIssuesByKeys(keys: string[]): Promise<JiraIssue[]>;
+  getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue>;
+  listIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
   getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
+  listClockworkWorklogs(startingAt: string, endingAt: string, userAccountIds?: string[] | string, projectKeys?: string[]): Promise<ClockworkWorklog[]>;
   listBoardUsers(boardId: number): Promise<JiraUser[]>;
 }

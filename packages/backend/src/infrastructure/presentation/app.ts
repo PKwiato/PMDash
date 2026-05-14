@@ -1,3 +1,6 @@
+import cors from 'cors';
+import express from 'express';
+
 import type { AppConfig } from '../config/ConfigStore';
 import { JiraApiAdapter } from '../jira/JiraApiAdapter';
 import { JiraApiClient } from '../jira/JiraApiClient';
@@ -8,8 +11,6 @@ import { MarkdownProjectRepository } from '../persistence/MarkdownProjectReposit
 import { MarkdownTagRepository } from '../persistence/MarkdownTagRepository';
 import { MarkdownTaskRepository } from '../persistence/MarkdownTaskRepository';
 import { ObsidianVaultWriter } from '../persistence/ObsidianVaultWriter';
-import cors from 'cors';
-import express from 'express';
 import { errorHandler } from './middleware/errorHandler';
 import { archiveRouter } from './routes/archive.routes';
 import { clockworkRouter } from './routes/clockwork.routes';
@@ -33,7 +34,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   const noteRepo = new MarkdownNoteRepository(config, parser, projectRepo);
   const epicRepo = new MarkdownEpicRepository();
   const taskRepo = new MarkdownTaskRepository();
-  const tagRepo = new MarkdownTagRepository();
+  const tagRepo = new MarkdownTagRepository(config, parser);
   const vaultWriter = new ObsidianVaultWriter(config);
 
   let jiraAdapter: JiraApiAdapter | null = null;
@@ -43,7 +44,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   }
 
   app.use('/api/notes', noteByIdRouter(projectRepo, noteRepo));
-  app.use('/api/projects', projectsRouter(projectRepo, epicRepo, taskRepo));
+  app.use('/api/projects', projectsRouter(projectRepo));
   app.use('/api/projects/:projectId/notes', projectNotesRouter(projectRepo, noteRepo));
   app.use(
     '/api/epics',

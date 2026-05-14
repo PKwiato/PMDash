@@ -7,7 +7,7 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "node --import tsx --test src/domain/jira/jiraDwell.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

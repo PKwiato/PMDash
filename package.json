@@ -5,7 +5,17 @@
     "dev": "pnpm --parallel -r run dev",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint packages/backend/src packages/frontend/src",
+    "format": "prettier --write \"packages/**/*.{ts,vue,css,json}\" \"*.{json,mjs}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,vue,css,json}\" \"*.{json,mjs}\"",
     "docker:up": "docker compose up --build",
     "docker:build": "docker compose build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.59.2"
   }
 }

@@ -1,4 +1,9 @@
-import type { JiraIssue } from '../../domain/ports/IJiraAdapter';
+import type { JiraChangelogHistory, JiraIssue } from '../../domain/ports/IJiraAdapter';
+import {
+  businessDaysInCurrentStatusFromChangelog,
+  returnsCountFromChangelog,
+  statusDwellBusinessDaysFromChangelog,
+} from '../../domain/jira/statusDwellFromChangelog';
 
 export class JiraResponseMapper {
   static toIssue(raw: {
@@ -13,7 +18,9 @@ export class JiraResponseMapper {
       description?: unknown;
       customfield_10014?: string | null;
       parent?: { key: string } | null;
+      created?: string;
     };
+    changelog?: { histories?: unknown[] };
   }): JiraIssue {
     const fields = raw.fields as any;
     
@@ -39,19 +46,21 @@ export class JiraResponseMapper {
       issueType: st.fields.issuetype.name,
     }));
 
-    return {
+    const issue: JiraIssue = {
       id: raw.id,
       key: raw.key,
       summary: raw.fields.summary,
       description: this.parseAdfToMarkdown(raw.fields.description),
       status: raw.fields.status.name,
       assignee: raw.fields.assignee?.displayName ?? null,
+      assigneeAvatarUrl: raw.fields.assignee?.avatarUrls?.['48x48'] ?? null,
       priority: raw.fields.priority?.name ?? 'Medium',
       issueType: raw.fields.issuetype.name,
       epicKey: raw.fields.customfield_10014 ?? raw.fields.parent?.key ?? null,
       comments: fields.comment?.comments?.map((c: any) => ({
         id: c.id,
         author: c.author?.displayName ?? 'Unknown',
+        authorAvatarUrl: c.author?.avatarUrls?.['48x48'] ?? null,
         body: this.parseAdfToMarkdown(c.body) ?? '',
         created: c.created,
       })),
@@ -59,6 +68,43 @@ export class JiraResponseMapper {
       subtasks,
       storyPoints: fields.customfield_10004 ?? null,
     };
+
+    const created = typeof fields.created === 'string' ? fields.created : undefined;
+    if (created) {
+      issue.created = created;
+    }
+
+    const rawAny = raw as Record<string, unknown>;
+    if (rawAny.changelog != null && typeof rawAny.changelog === 'object') {
+      const cl = rawAny.changelog as { histories?: unknown[] };
+      const histories = Array.isArray(cl.histories) ? this.mapChangelogHistories(cl.histories) : [];
+      issue.changelog = histories;
+      if (created) {
+        issue.statusDwellBusinessDays = statusDwellBusinessDaysFromChangelog(created, issue.status, histories);
+        issue.currentStatusBusinessDays = businessDaysInCurrentStatusFromChangelog(created, histories);
+        issue.returnsCount = returnsCountFromChangelog(histories);
+      }
+    }
+
+    return issue;
+  }
+
+  private static mapChangelogHistories(rawHistories: unknown[]): JiraChangelogHistory[] {
+    return rawHistories.map((h): JiraChangelogHistory => {
+      const row = h as Record<string, unknown>;
+      const author = row.author as { displayName?: string } | undefined;
+      const items = (Array.isArray(row.items) ? row.items : []) as Record<string, unknown>[];
+      return {
+        id: String(row.id ?? ''),
+        created: String(row.created ?? ''),
+        author: author?.displayName ?? null,
+        items: items.map(it => ({
+          field: String(it.field ?? ''),
+          fromString: it.fromString != null ? String(it.fromString) : null,
+          toString: it.toString != null ? String(it.toString) : null,
+        })),
+      };
+    });
   }
 
   private static parseAdfToMarkdown(adf: any): string | null {

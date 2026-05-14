@@ -35,9 +35,10 @@ export function clockworkRouter(
         String(dateTo)
       );
       res.json(analysis);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Clockwork analysis error:', error);
-      res.status(500).json({ error: 'Failed to analyze worklogs', details: error.message });
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: 'Failed to analyze worklogs', details: message });
     }
   });
 

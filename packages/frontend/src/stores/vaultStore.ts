@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
+import { api, getApiErrorMessage } from '../api/client';
 
 export interface VaultSettings {
   productionDir: string;
@@ -19,13 +19,14 @@ export const useVaultStore = defineStore('vault', {
   actions: {
     async fetchSettings() {
       this.loading = true;
+      this.error = null;
       try {
-        const response = await axios.get<VaultSettings>('/api/vault/settings');
+        const response = await api.get<VaultSettings>('/vault/settings');
         this.productionDir = response.data.productionDir;
         this.testDir = response.data.testDir;
         this.activeMode = response.data.activeMode;
-      } catch (err) {
-        this.error = 'Failed to fetch vault settings';
+      } catch (err: unknown) {
+        this.error = getApiErrorMessage(err, 'Failed to fetch vault settings');
         console.error(err);
       } finally {
         this.loading = false;
@@ -34,14 +35,15 @@ export const useVaultStore = defineStore('vault', {
 
     async updateSettings(settings: Partial<VaultSettings>) {
       this.loading = true;
+      this.error = null;
       try {
-        const response = await axios.patch<VaultSettings>('/api/vault/settings', settings);
+        const response = await api.patch<VaultSettings>('/vault/settings', settings);
         this.productionDir = response.data.productionDir;
         this.testDir = response.data.testDir;
         this.activeMode = response.data.activeMode;
         return true;
-      } catch (err) {
-        this.error = 'Failed to update vault settings';
+      } catch (err: unknown) {
+        this.error = getApiErrorMessage(err, 'Failed to update vault settings');
         console.error(err);
         return false;
       } finally {
@@ -52,6 +54,6 @@ export const useVaultStore = defineStore('vault', {
     async toggleMode() {
       const newMode = this.activeMode === 'production' ? 'test' : 'production';
       return this.updateSettings({ activeMode: newMode });
-    }
-  }
+    },
+  },
 });

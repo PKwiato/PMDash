@@ -135,8 +135,18 @@
                 <tr v-else v-for="issue in filteredAndSortedIssues" :key="issue.id" class="hover:bg-surface-container transition-colors group cursor-pointer" @click="router.push(`/tasks/${issue.key}`)">
                   <td class="px-md py-3 font-label-md text-secondary">{{ issue.key }}</td>
                   <td class="px-md py-3">
-                    <div class="flex flex-col">
-                      <span class="font-body-md font-semibold text-on-surface">{{ issue.summary }}</span>
+                    <div class="flex flex-col gap-1">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-body-md font-semibold text-on-surface">{{ issue.summary }}</span>
+                        <span
+                          v-if="pinnedIssueKeys.has(issue.key)"
+                          class="inline-flex items-center gap-1 rounded-full bg-secondary/90 text-on-secondary px-2.5 py-1 font-label-sm text-label-sm shadow-sm shrink-0"
+                          title="Masz przypiętą notatkę powiązaną z tym zadaniem"
+                        >
+                          <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1">push_pin</span>
+                          <span>Przypięta</span>
+                        </span>
+                      </div>
                       <span class="text-label-sm text-on-surface-variant">{{ issue.issueType }}</span>
                     </div>
                   </td>
@@ -167,7 +177,10 @@
                   </td>
                   <td class="px-md py-3">
                     <div v-if="issue.assignee" class="flex items-center gap-2">
-                      <div class="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-[10px] text-white">{{ issue.assignee.charAt(0) }}</div>
+                      <div class="w-6 h-6 rounded-full overflow-hidden bg-primary-container flex items-center justify-center text-[10px] text-white">
+                        <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                        <template v-else>{{ issue.assignee.charAt(0) }}</template>
+                      </div>
                       <span class="text-body-sm">{{ issue.assignee }}</span>
                     </div>
                     <div v-else class="text-body-sm text-on-surface-variant">Unassigned</div>
@@ -194,9 +207,25 @@
 import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
+import { useNotesStore } from '../stores/notesStore';
+import { uniqueJiraKeysFromString } from '../utils/jiraKeys';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
+const notesStore = useNotesStore();
+
+/** Jira keys that appear in any active, pinned note (title or body). */
+const pinnedIssueKeys = computed(() => {
+  const set = new Set<string>();
+  for (const note of notesStore.notes) {
+    if (note.archived || !note.pinned) continue;
+    for (const k of uniqueJiraKeysFromString(note.title)) set.add(k);
+    if (note.body) {
+      for (const k of uniqueJiraKeysFromString(note.body)) set.add(k);
+    }
+  }
+  return set;
+});
 
 // State for search, filter, and sort
 const searchQuery = ref('');
@@ -314,6 +343,6 @@ function clearFilters() {
 
 onMounted(async () => {
   await jiraStore.fetchConfig();
-  jiraStore.fetchIssuesForBoard();
+  await Promise.all([jiraStore.fetchIssuesForBoard(), notesStore.fetchAllNotes()]);
 });
 </script>

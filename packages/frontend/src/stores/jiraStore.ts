@@ -1,36 +1,67 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
-import type { JiraIssueDto } from '../types/api';
+import type { JiraIssueDto, JiraSprintScopeDto } from '../types/api';
+import { api, getApiErrorMessage } from '../api/client';
 
-const API_BASE = '/api/jira';
+/**
+ * Bulk sync (e.g. from note bodies) returns issues without changelog. If we already
+ * loaded a richer payload (e.g. task detail with includeChangelog), keep it so later
+ * fetches do not wipe statusDwellBusinessDays / changelog.
+ */
+function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): JiraIssueDto {
+  if (!prev) return next;
+  const prevRich =
+    prev.changelog !== undefined ||
+    prev.statusDwellBusinessDays !== undefined ||
+    prev.currentStatusBusinessDays !== undefined ||
+    prev.returnsCount !== undefined;
+  const nextLight =
+    next.changelog === undefined &&
+    next.statusDwellBusinessDays === undefined &&
+    next.currentStatusBusinessDays === undefined &&
+    next.returnsCount === undefined;
+  if (prevRich && nextLight) {
+    return {
+      ...next,
+      created: next.created ?? prev.created,
+      changelog: prev.changelog,
+      statusDwellBusinessDays: prev.statusDwellBusinessDays,
+      currentStatusBusinessDays: prev.currentStatusBusinessDays,
+      returnsCount: prev.returnsCount,
+    };
+  }
+  return next;
+}
 
 export const useJiraStore = defineStore('jira', () => {
   const defaultBoardId = ref<number | null>(null);
   const boardName = ref<string>('Loading...');
   const activeMode = ref<'production' | 'test'>('production');
   const issues = ref<JiraIssueDto[]>([]);
-  const boards = ref<any[]>([]);
+  const boards = ref<{ id: number; name: string }[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const sprintScope = ref<JiraSprintScopeDto | null>(null);
 
   async function fetchConfig() {
     try {
-      const response = await axios.get<{ defaultBoardId: number, activeMode: 'production' | 'test' }>(`${API_BASE}/config`);
+      const response = await api.get<{ defaultBoardId: number; activeMode: 'production' | 'test' }>(
+        '/jira/config',
+      );
       defaultBoardId.value = response.data.defaultBoardId;
       activeMode.value = response.data.activeMode;
-      
+
       if (defaultBoardId.value) {
         await fetchBoardName(defaultBoardId.value);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching Jira config:', err);
     }
   }
 
   async function fetchBoardName(id: number) {
     try {
-      const response = await axios.get<any[]>(`${API_BASE}/boards`);
+      const response = await api.get<{ id: number; name: string }[]>('/jira/boards');
       boards.value = response.data;
       const board = response.data.find(b => b.id === id);
       if (board) {
@@ -38,58 +69,105 @@ export const useJiraStore = defineStore('jira', () => {
       } else {
         boardName.value = `Board #${id}`;
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching board name:', err);
       boardName.value = `Board #${id}`;
     }
   }
 
-  async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true) {
+  async function fetchSprintScope(boardId?: number) {
+    const id = boardId || defaultBoardId.value;
+    if (!id) {
+      sprintScope.value = null;
+      return;
+    }
+    try {
+      const { data } = await api.get<JiraSprintScopeDto>(`/jira/boards/${id}/sprint-scope`);
+      sprintScope.value = data;
+    } catch (err: unknown) {
+      console.error('Error fetching sprint scope:', err);
+      sprintScope.value = null;
+    }
+  }
+
+  async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true, includeChangelog = false) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
-    
+
     loading.value = true;
     error.value = null;
     try {
-      const response = await axios.get<JiraIssueDto[]>(`${API_BASE}/boards/${id}/issues`, {
-        params: { activeSprintOnly }
-      });
-      issues.value = response.data;
-    } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to fetch issues';
+      const [issuesResponse] = await Promise.all([
+        api.get<JiraIssueDto[]>(`/jira/boards/${id}/issues`, {
+          params: {
+            activeSprintOnly,
+            ...(includeChangelog ? { includeChangelog: 'true' } : {}),
+          },
+        }),
+        fetchSprintScope(id),
+      ]);
+      issues.value = issuesResponse.data;
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to fetch issues');
       console.error('Error fetching Jira issues:', err);
     } finally {
       loading.value = false;
     }
   }
 
-  async function fetchIssuesByKeys(keys: string[]) {
+  async function fetchIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }) {
     if (keys.length === 0) return [];
-    
+
     try {
-      const response = await axios.post<JiraIssueDto[]>(`${API_BASE}/issues/bulk`, { keys });
-      
-      // Update existing issues or add new ones
+      const response = await api.post<JiraIssueDto[]>('/jira/issues/bulk', {
+        keys,
+        includeChangelog: options?.includeChangelog === true,
+      });
+
       const newIssues = response.data;
       const issueMap = new Map(issues.value.map(i => [i.key, i]));
-      newIssues.forEach(ni => issueMap.set(ni.key, ni));
+      const merged = newIssues.map(ni => {
+        const prev = issueMap.get(ni.key);
+        const out = mergeJiraIssueDto(prev, ni);
+        issueMap.set(ni.key, out);
+        return out;
+      });
       issues.value = Array.from(issueMap.values());
-      
-      return newIssues;
-    } catch (err) {
+
+      return merged;
+    } catch (err: unknown) {
       console.error('Error fetching bulk Jira issues:', err);
       return [];
     }
   }
 
+  async function fetchIssueByKey(key: string, options?: { includeChangelog?: boolean }) {
+    const trimmed = key.trim();
+    if (!trimmed) return null;
+    try {
+      const response = await api.get<JiraIssueDto>(`/jira/issues/${encodeURIComponent(trimmed)}`, {
+        params: options?.includeChangelog ? { includeChangelog: 'true' } : {},
+      });
+      const data = response.data;
+      const issueMap = new Map(issues.value.map(i => [i.key, i]));
+      const prev = issueMap.get(data.key);
+      issueMap.set(data.key, mergeJiraIssueDto(prev, data));
+      issues.value = Array.from(issueMap.values());
+      return issueMap.get(data.key)!;
+    } catch (err: unknown) {
+      console.error('Error fetching Jira issue:', err);
+      return null;
+    }
+  }
+
   async function updateConfig(newBoardId: number) {
     try {
-      const response = await axios.patch<{ defaultBoardId: number }>(`${API_BASE}/config`, {
-        defaultBoardId: newBoardId
+      const response = await api.patch<{ defaultBoardId: number }>('/jira/config', {
+        defaultBoardId: newBoardId,
       });
       defaultBoardId.value = response.data.defaultBoardId;
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error updating Jira config:', err);
       return false;
     }
@@ -103,9 +181,12 @@ export const useJiraStore = defineStore('jira', () => {
     boards,
     loading,
     error,
+    sprintScope,
     fetchConfig,
     fetchIssuesForBoard,
+    fetchSprintScope,
     fetchIssuesByKeys,
-    updateConfig
+    fetchIssueByKey,
+    updateConfig,
   };
 });

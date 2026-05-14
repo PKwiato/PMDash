@@ -41,14 +41,14 @@ export class MarkdownNoteRepository implements INoteRepository {
 
     for (const f of files) {
       try {
-        const data = await this.parser.parseFile(path.join(dir, f));
-        if (data.type === 'note') notes.push(this.toNote(data));
+        const result = await this.parser.parseFileWithBody(path.join(dir, f));
+        if (result.data.type === 'note') notes.push(this.toNote(result.data, result.content));
       } catch {
         /* skip */
       }
     }
 
-    return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return MarkdownNoteRepository.sortNotes(notes);
   }
 
   async findAll(): Promise<Note[]> {
@@ -61,14 +61,22 @@ export class MarkdownNoteRepository implements INoteRepository {
     const notes: Note[] = [];
     for (const filePath of paths) {
       try {
-        const data = await this.parser.parseFile(filePath);
-        if (data.type === 'note') notes.push(this.toNote(data));
+        const result = await this.parser.parseFileWithBody(filePath);
+        if (result.data.type === 'note') notes.push(this.toNote(result.data, result.content));
       } catch {
         /* skip */
       }
     }
 
-    return notes.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return MarkdownNoteRepository.sortNotes(notes);
+  }
+
+  private static sortNotes(notes: Note[]): Note[] {
+    return [...notes].sort((a, b) => {
+      if (a.archived !== b.archived) return a.archived ? 1 : -1;
+      if (!a.archived && !b.archived && a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
   }
 
   async findById(id: string): Promise<Note | null> {
@@ -133,6 +141,8 @@ export class MarkdownNoteRepository implements INoteRepository {
         project_id: note.projectId,
         created_at: note.createdAt.toISOString(),
         updated_at: note.updatedAt.toISOString(),
+        pinned: note.pinned,
+        archived: note.archived,
       },
       tags,
       aliases,
@@ -156,7 +166,7 @@ export class MarkdownNoteRepository implements INoteRepository {
     return path.join(this.notesDir(project.slug), 'attachments', note.slug);
   }
 
-  private toNote(data: Record<string, unknown>): Note {
+  private toNote(data: Record<string, unknown>, body?: string): Note {
     return new Note(
       data.id as string,
       data.title as string,
@@ -165,6 +175,13 @@ export class MarkdownNoteRepository implements INoteRepository {
       this.parser.parseTags(data).filter(t => t.category === TagCategory.CUSTOM),
       new Date(data.created_at as string),
       new Date(data.updated_at as string),
+      body,
+      MarkdownNoteRepository.asBool(data.pinned),
+      MarkdownNoteRepository.asBool(data.archived),
     );
+  }
+
+  private static asBool(v: unknown): boolean {
+    return v === true || v === 'true';
   }
 }

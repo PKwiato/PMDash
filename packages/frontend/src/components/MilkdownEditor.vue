@@ -21,42 +21,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
+  (
+    e: 'uploadAttachment',
+    file: File,
+    resolve: (url: string) => void,
+    reject: (err: unknown) => void,
+  ): void;
 }>();
 
 const editorRef = ref<HTMLDivElement | null>(null);
 let crepe: Crepe | null = null;
 let isInternalUpdate = false;
-
-// Custom uploader implementation for Crepe
-const uploader = async (file: File) => {
-  try {
-    // We use a custom event or reach out to the store/parent
-    // For simplicity, we'll expose a method or use a callback
-    // But since Crepe is isolated, we'll trigger a custom event on the window or use a provided prop
-    // Actually, we can use the same logic as before if we can access the parent context
-    
-    // Create a temporary URL for immediate preview
-    const tempUrl = URL.createObjectURL(file);
-    
-    // We need to trigger the actual upload. We'll dispatch a custom event
-    // that NotesOverview.vue can listen to.
-    const event = new CustomEvent('milkdown-upload', { 
-      detail: { file, callback: (url: string) => {
-        // This is tricky with Crepe's internal state.
-        // Crepe's onUpload expects a returned URL.
-      }} 
-    });
-    window.dispatchEvent(event);
-
-    // For now, let's assume we want to handle it here.
-    // We'll need the uploadAttachment function from the store.
-    // Since we are in a component, we can use the store.
-    return tempUrl; // Placeholder - the actual upload logic should be better integrated
-  } catch (error) {
-    console.error('Upload failed:', error);
-    return '';
-  }
-};
 
 const isReady = ref(false);
 
@@ -69,8 +44,9 @@ onMounted(async () => {
     featureConfigs: {
       'image-block': {
         onUpload: async (file: File) => {
-          console.log('Crepe uploading file:', file.name);
-          return URL.createObjectURL(file);
+          return new Promise<string>((resolve, reject) => {
+            emit('uploadAttachment', file, resolve, reject);
+          });
         },
       },
     },
@@ -79,7 +55,7 @@ onMounted(async () => {
   // Enable listener to sync with modelValue
   crepe.editor.use(listener);
   crepe.editor.config((ctx) => {
-    ctx.get(listenerCtx).markdownUpdated((ctx, markdown) => {
+    ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
       if (markdown !== props.modelValue) {
         isInternalUpdate = true;
         emit('update:modelValue', markdown);

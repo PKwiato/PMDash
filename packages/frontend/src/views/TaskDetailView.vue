@@ -44,10 +44,14 @@
                 </span>
               </div>
             </div>
-            <div class="grid grid-cols-3 gap-6 py-4 border-y border-slate-100">
+            <div class="grid gap-6 py-4 border-y border-slate-100" :class="issue.returnsCount ? 'grid-cols-4' : 'grid-cols-3'">
               <div>
                 <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Assignee</p>
                 <div class="flex items-center gap-2" v-if="issue.assignee">
+                  <div class="w-6 h-6 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0">
+                    <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                    <span v-else class="material-symbols-outlined text-[16px] text-slate-400">person</span>
+                  </div>
                   <span class="font-body-md text-body-md text-slate-900 font-medium">{{ issue.assignee }}</span>
                 </div>
                 <span v-else class="text-body-md text-slate-500">Unassigned</span>
@@ -63,8 +67,82 @@
                 </span>
                 <span v-else class="text-body-md text-slate-400 italic">None</span>
               </div>
+              <div v-if="issue.returnsCount">
+                <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Returns</p>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-error/10 text-error rounded font-black text-body-md border border-error/20 animate-pulse" title="Returns from testing/later stages">
+                  <span class="material-symbols-outlined text-[18px]">replay</span>
+                  {{ issue.returnsCount }}
+                </div>
+              </div>
             </div>
           </div>
+
+          <div class="space-y-3 pt-2 border-t border-slate-100">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h3 class="font-headline-md text-headline-md text-slate-900">Czas w statusach</h3>
+                <p class="text-label-sm text-slate-500 mt-0.5">
+                  Dni robocze (pon.–pt., granice dni w UTC), weekendy pominięte
+                </p>
+              </div>
+              <button
+                type="button"
+                class="shrink-0 px-3 py-2 border border-slate-200 rounded-lg font-label-md text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+                @click="changelogOpen = !changelogOpen"
+              >
+                <span class="material-symbols-outlined text-[18px]">history</span>
+                {{ changelogOpen ? 'Zamknij changelog' : 'Pełny changelog Jira' }}
+              </button>
+            </div>
+            <div
+              v-if="sortedStatusDwell && sortedStatusDwell.length > 0"
+              class="flex flex-wrap gap-2"
+            >
+              <span
+                v-for="row in sortedStatusDwell"
+                :key="row.status"
+                class="inline-flex items-baseline gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-body-sm text-slate-800"
+              >
+                <span class="font-medium">{{ row.status }}</span>
+                <span class="text-slate-500">·</span>
+                <span class="tabular-nums text-secondary font-semibold">{{ formatDwell(row.businessDays) }}</span>
+                <span class="text-slate-500 text-label-sm">dni rob.</span>
+              </span>
+            </div>
+            <p v-else class="text-body-sm text-slate-400 italic">Brak danych do podsumowania czasu w statusach.</p>
+
+            <div
+              v-if="changelogOpen"
+              class="border border-slate-200 rounded-xl bg-slate-50/80 max-h-[28rem] overflow-y-auto custom-scrollbar p-4 space-y-4"
+            >
+              <template v-if="issue.changelog && issue.changelog.length > 0">
+                <div
+                  v-for="(h, idx) in issue.changelog"
+                  :key="h.id + '-' + h.created + '-' + idx"
+                  class="border-b border-slate-200/80 last:border-0 pb-4 last:pb-0"
+                >
+                  <div class="flex flex-wrap items-center gap-2 text-label-sm text-slate-500 mb-2">
+                    <span class="font-medium text-slate-800">{{ formatDate(h.created) }}</span>
+                    <span v-if="h.author">· {{ h.author }}</span>
+                  </div>
+                  <ul class="space-y-1.5 font-body-sm text-slate-700">
+                    <li v-for="(it, j) in h.items" :key="j" class="flex flex-wrap gap-x-2 gap-y-1">
+                      <span class="text-slate-500 uppercase tracking-wide text-[10px]">{{ it.field }}</span>
+                      <span v-if="it.fromString != null || it.toString != null" class="break-words">
+                        <template v-if="it.fromString != null">
+                          <span class="text-slate-600">{{ it.fromString }}</span>
+                          <span class="mx-1 text-slate-400">→</span>
+                        </template>
+                        <span class="text-slate-900 font-medium">{{ it.toString ?? '—' }}</span>
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </template>
+              <p v-else class="text-body-sm text-slate-400">Brak wpisów w changelogu.</p>
+            </div>
+          </div>
+
           <!-- Description Section -->
           <div class="space-y-3">
             <h3 class="font-headline-md text-headline-md text-slate-900">Description</h3>
@@ -180,8 +258,9 @@
             
             <div v-if="issue.comments && issue.comments.length > 0" class="space-y-6">
               <div v-for="comment in issue.comments" :key="comment.id" class="flex gap-4 group">
-                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-500 border border-slate-200">
-                  <span class="material-symbols-outlined text-[20px]">person</span>
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-500 border border-slate-200 overflow-hidden">
+                  <img v-if="comment.authorAvatarUrl" :src="comment.authorAvatarUrl" :alt="comment.author" class="w-full h-full object-cover" />
+                  <span v-else class="material-symbols-outlined text-[20px]">person</span>
                 </div>
                 <div class="flex-1 space-y-2">
                   <div class="flex items-center justify-between">
@@ -236,10 +315,11 @@
         <!-- Rich Text Editor Container -->
         <div class="flex-1 flex flex-col p-4 space-y-4 overflow-hidden">
           <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden focus-within:border-teal-500 transition-all">
-            <MilkdownWrapper 
-              v-model="noteBody" 
+            <MilkdownWrapper
+              v-model="noteBody"
               class="flex-1"
               @update:modelValue="isDirty = true"
+              @uploadAttachment="handleNoteUploadAttachment"
             />
           </div>
           <!-- Editor Footer Info -->
@@ -282,12 +362,13 @@ const loading = ref(true);
 const saving = ref(false);
 const isDirty = ref(false);
 const noteBody = ref('');
+const changelogOpen = ref(false);
 
 // Resizing logic
 const rightPanelWidth = ref(450);
 const isResizing = ref(false);
 
-function startResizing(event: MouseEvent) {
+function startResizing(_event: MouseEvent) {
   isResizing.value = true;
   window.addEventListener('mousemove', doResize);
   window.addEventListener('mouseup', stopResizing);
@@ -333,6 +414,45 @@ const mentionedIssues = computed(() => {
   return [...new Set(matches.filter(k => !existingKeys.has(k)))];
 });
 
+const sortedStatusDwell = computed(() => {
+  if (!issue.value?.statusDwellBusinessDays) return [];
+  
+  const order = ['to do', 'in progress', 'code review', 'testing', 'beta', 'done'];
+  
+  return [...issue.value.statusDwellBusinessDays].sort((a, b) => {
+    const nameA = a.status.toLowerCase();
+    const nameB = b.status.toLowerCase();
+    
+    let indexA = order.indexOf(nameA);
+    let indexB = order.indexOf(nameB);
+    
+    // Heuristic fallback for non-exact matches
+    if (indexA === -1) {
+      if (nameA.includes('zrobienia')) indexA = 0;
+      else if (nameA.includes('toku') || nameA.includes('dev')) indexA = 1;
+      else if (nameA.includes('review') || nameA.includes('przegląd')) indexA = 2;
+      else if (nameA.includes('test')) indexA = 3;
+      else if (nameA.includes('beta')) indexA = 4;
+      else if (nameA.includes('gotowe') || nameA.includes('done')) indexA = 5;
+    }
+    
+    if (indexB === -1) {
+      if (nameB.includes('zrobienia')) indexB = 0;
+      else if (nameB.includes('toku') || nameB.includes('dev')) indexB = 1;
+      else if (nameB.includes('review') || nameB.includes('przegląd')) indexB = 2;
+      else if (nameB.includes('test')) indexB = 3;
+      else if (nameB.includes('beta')) indexB = 4;
+      else if (nameB.includes('gotowe') || nameB.includes('done')) indexB = 5;
+    }
+
+    if (indexA === -1 && indexB === -1) return a.status.localeCompare(b.status);
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    
+    return indexA - indexB;
+  });
+});
+
 function getIssueFromStore(key: string) {
   return jiraStore.issues.find(i => i.key === key);
 }
@@ -360,6 +480,11 @@ function formatDate(dateStr: string) {
     hour: '2-digit',
     minute: '2-digit'
   });
+}
+
+function formatDwell(days: number) {
+  if (!Number.isFinite(days)) return '—';
+  return days >= 10 ? days.toFixed(1) : days.toFixed(2);
 }
 
 async function saveNote() {
@@ -414,12 +539,30 @@ function clearNote() {
   isDirty.value = true;
 }
 
+async function handleNoteUploadAttachment(
+  file: File,
+  resolve: (url: string) => void,
+  reject: (err: unknown) => void,
+) {
+  const id = notesStore.currentNote?.id;
+  if (!id) {
+    reject(new Error('Save the note before attaching images'));
+    return;
+  }
+  try {
+    const url = await notesStore.uploadAttachment(id, file);
+    resolve(url);
+  } catch (e) {
+    reject(e);
+  }
+}
+
 onMounted(async () => {
   loading.value = true;
   
   // Parallel fetch
   await Promise.all([
-    jiraStore.fetchIssuesByKeys([issueId.value]),
+    jiraStore.fetchIssueByKey(issueId.value, { includeChangelog: true }),
     notesStore.fetchAllNotes(),
     projectsStore.fetchProjects()
   ]);

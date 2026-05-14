@@ -21,11 +21,28 @@ export interface NoteListItem {
   projectId: string;
   createdAt: string;
   updatedAt: string;
+  body?: string;
+  pinned?: boolean;
+  archived?: boolean;
+  tags?: string[];
 }
 
 export interface NoteDetail extends NoteListItem {
   body: string;
+  tags: string[];
 }
+
+export interface TagSummary {
+  slug: string;
+  label: string;
+  category: string;
+  count: number;
+  editable: boolean;
+}
+
+export const TAG_CATEGORY_CUSTOM = 'custom';
+
+export const TAG_SLUG_REGEX = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
 
 export interface JiraBoardListItem {
   id: number;
@@ -43,6 +60,7 @@ export interface JiraBoardProjectDto {
 export interface JiraCommentDto {
   id: string;
   author: string;
+  authorAvatarUrl: string | null;
   body: string;
   created: string;
 }
@@ -56,6 +74,24 @@ export interface JiraLinkedIssueDto {
   issueType: string;
 }
 
+export interface JiraChangelogItemDto {
+  field: string;
+  fromString: string | null;
+  toString: string | null;
+}
+
+export interface JiraChangelogHistoryDto {
+  id: string;
+  created: string;
+  author: string | null;
+  items: JiraChangelogItemDto[];
+}
+
+export interface JiraStatusDwellDto {
+  status: string;
+  businessDays: number;
+}
+
 export interface JiraIssueDto {
   id: string;
   key: string;
@@ -63,6 +99,7 @@ export interface JiraIssueDto {
   description: string | null;
   status: string;
   assignee: string | null;
+  assigneeAvatarUrl: string | null;
   priority: string;
   issueType: string;
   epicKey: string | null;
@@ -70,4 +107,26 @@ export interface JiraIssueDto {
   linkedIssues?: JiraLinkedIssueDto[];
   subtasks?: JiraLinkedIssueDto[];
   storyPoints?: number | null;
+  created?: string;
+  changelog?: JiraChangelogHistoryDto[];
+  statusDwellBusinessDays?: JiraStatusDwellDto[];
+  /** Dni robocze (UTC) w bieżącym statusie od ostatniej zmiany statusu w Jirze. */
+  currentStatusBusinessDays?: number;
+  /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
+  returnsCount?: number;
+}
+
+export type JiraSprintScopeMode = 'active_sprint' | 'whole_board';
+
+export interface JiraSprintSummaryDto {
+  id: number;
+  name: string;
+  state: string;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface JiraSprintScopeDto {
+  mode: JiraSprintScopeMode;
+  sprint: JiraSprintSummaryDto | null;
 }

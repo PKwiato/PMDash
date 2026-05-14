@@ -15,10 +15,7 @@ export interface UserAnalysis {
 }
 
 export class WorklogAnalysisService {
-  constructor(
-    private readonly jiraAdapter: IJiraAdapter,
-    private readonly clockworkAdapter: IClockworkAdapter,
-  ) {}
+  constructor(private readonly jiraAdapter: IJiraAdapter) { }
 
   async analyzeBoard(boardId: number, dateFrom: string, dateTo: string): Promise<UserAnalysis[]> {
     const users = await this.jiraAdapter.listBoardUsers(boardId);
@@ -26,6 +23,12 @@ export class WorklogAnalysisService {
 
     const userAccountIds = new Set(users.map(user => user.accountId));
     const allWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo);
+
+    const projectKeys = projects.map(p => p.key);
+
+    // 2. Get worklogs for these users in the period (scoped to board projects when known)
+    const userIds = users.map(u => u.accountId);
+    const allWorklogs = await this.jiraAdapter.listClockworkWorklogs(dateFrom, dateTo, userIds, projectKeys);
 
     const worklogsByUser: Record<string, ClockworkWorklog[]> = {};
     for (const user of users) {
@@ -39,7 +42,7 @@ export class WorklogAnalysisService {
     for (const user of users) {
       const userLogs = worklogsByUser[user.accountId] || [];
       const userInconsistencies: WorklogInconsistency[] = [];
-      
+
       // Calculate total seconds
       const totalSeconds = userLogs.reduce((sum, w) => sum + w.timeSpentSeconds, 0);
 
@@ -72,11 +75,11 @@ export class WorklogAnalysisService {
           }
         } else {
           // Workday
-          if (dailyHours < 7 && dailyHours > 0) {
+          if (dailyHours < 6 && dailyHours > 0) {
             userInconsistencies.push({
               type: 'missing_hours',
               date: dateStr,
-              details: `Only ${dailyHours.toFixed(1)}h reported (expected min 7h).`,
+              details: `Only ${dailyHours.toFixed(1)}h reported (expected min 6h).`,
               severity: 'medium',
             });
           } else if (dailyHours === 0) {

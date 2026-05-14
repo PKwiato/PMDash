@@ -1,16 +1,10 @@
 import { CreateProject } from '../../../application/use-cases/projects/CreateProject';
 import { ProjectNotFoundError } from '../../../domain/errors/ProjectNotFoundError';
-import type { IEpicRepository } from '../../../domain/ports/IEpicRepository';
 import type { IProjectRepository } from '../../../domain/ports/IProjectRepository';
-import type { ITaskRepository } from '../../../domain/ports/ITaskRepository';
 import { projectToJson } from '../serialization/projectDto';
 import { Router } from 'express';
 
-export function projectsRouter(
-  projectRepo: IProjectRepository,
-  _epicRepo: IEpicRepository,
-  _taskRepo: ITaskRepository,
-) {
+export function projectsRouter(projectRepo: IProjectRepository) {
   const r = Router();
   const createProject = new CreateProject(projectRepo);
 
