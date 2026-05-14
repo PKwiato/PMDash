@@ -15,7 +15,10 @@ export interface UserAnalysis {
 }
 
 export class WorklogAnalysisService {
-  constructor(private readonly jiraAdapter: IJiraAdapter) { }
+  constructor(
+    private readonly jiraAdapter: IJiraAdapter,
+    private readonly clockworkAdapter: IClockworkAdapter,
+  ) {}
 
   async analyzeBoard(boardId: number, dateFrom: string, dateTo: string): Promise<UserAnalysis[]> {
     const users = await this.jiraAdapter.listBoardUsers(boardId);
@@ -23,12 +26,6 @@ export class WorklogAnalysisService {
 
     const userAccountIds = new Set(users.map(user => user.accountId));
     const allWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo);
-
-    const projectKeys = projects.map(p => p.key);
-
-    // 2. Get worklogs for these users in the period (scoped to board projects when known)
-    const userIds = users.map(u => u.accountId);
-    const allWorklogs = await this.jiraAdapter.listClockworkWorklogs(dateFrom, dateTo, userIds, projectKeys);
 
     const worklogsByUser: Record<string, ClockworkWorklog[]> = {};
     for (const user of users) {
