@@ -1,5 +1,4 @@
 import type {
-  ClockworkWorklog,
   IJiraAdapter,
   JiraBoard,
   JiraBoardProgress,

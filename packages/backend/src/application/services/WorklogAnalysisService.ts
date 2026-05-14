@@ -1,4 +1,5 @@
 import { ClockworkWorklog, IJiraAdapter, JiraUser } from '../../domain/ports/IJiraAdapter';
+import type { IClockworkAdapter } from '../../domain/ports/IClockworkAdapter';
 
 export interface WorklogInconsistency {
   type: 'missing_hours' | 'overtime' | 'weekend_work' | 'overlap';
@@ -17,13 +18,11 @@ export class WorklogAnalysisService {
   constructor(private readonly jiraAdapter: IJiraAdapter) { }
 
   async analyzeBoard(boardId: number, dateFrom: string, dateTo: string): Promise<UserAnalysis[]> {
-    // 1. Get board projects and users
-    const projects = await this.jiraAdapter.listBoardProjects(boardId);
     const users = await this.jiraAdapter.listBoardUsers(boardId);
     if (users.length === 0) return [];
 
-    const userMap = new Map<string, JiraUser>();
-    users.forEach(u => userMap.set(u.accountId, u));
+    const userAccountIds = new Set(users.map(user => user.accountId));
+    const allWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo);
 
     const projectKeys = projects.map(p => p.key);
 
@@ -33,7 +32,9 @@ export class WorklogAnalysisService {
 
     const worklogsByUser: Record<string, ClockworkWorklog[]> = {};
     for (const user of users) {
-      worklogsByUser[user.accountId] = allWorklogs.filter(w => w.userAccountId === user.accountId);
+      worklogsByUser[user.accountId] = allWorklogs.filter(
+        worklog => worklog.userAccountId === user.accountId && userAccountIds.has(worklog.userAccountId),
+      );
     }
 
     const analysis: UserAnalysis[] = [];
