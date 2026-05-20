@@ -15,6 +15,7 @@ import ProjectsView from './views/ProjectsView.vue';
 import SettingsView from './views/SettingsView.vue';
 import TagsView from './views/TagsView.vue';
 import ClockworkAnalysisView from './views/ClockworkAnalysisView.vue';
+import ProgramsView from './views/ProgramsView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +27,7 @@ const router = createRouter({
         { path: '', name: 'dashboard', component: DashboardView },
         { path: 'tasks', name: 'task-list', component: TaskListView },
         { path: 'kanban', name: 'kanban', component: KanbanView },
+        { path: 'programs', name: 'programs', component: ProgramsView },
         { path: 'tasks/:id', name: 'task-detail', component: TaskDetailView, alias: '/task/:id' },
         { path: 'notes', name: 'notes-overview', component: NotesOverview },
         { path: 'notes/tasks', name: 'note-tasks', component: NoteTasksOverview },

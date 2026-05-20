@@ -46,6 +46,9 @@ test('WorklogAnalysisService keeps only board users and sums their Clockwork hou
   const jiraAdapter: IJiraAdapter = {
     listBoards: async () => [],
     listBoardProjects: async () => [],
+    listBoardEpics: async () => [],
+    listBoardPrograms: async () => [],
+    listProgramsOverview: async () => [],
     listBoardIssues: async () => [],
     listBoardSprints: async () => [],
     getIssue: async () => {
@@ -53,6 +56,7 @@ test('WorklogAnalysisService keeps only board users and sums their Clockwork hou
     },
     listIssuesByKeys: async () => [],
     getBoardProgress: async () => ({ total: 0, byStatus: {} }),
+    listClockworkWorklogs: async () => [] as ClockworkWorklog[],
     listBoardUsers: async () => boardUsers,
   };
 

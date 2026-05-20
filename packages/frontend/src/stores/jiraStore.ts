@@ -111,6 +111,30 @@ export const useJiraStore = defineStore('jira', () => {
     }
   }
 
+  /** Full program list: board issues (paginated) + board epics + JQL programs. */
+  async function fetchProgramsOverview(boardId?: number) {
+    const id = boardId || defaultBoardId.value;
+    if (!id) return;
+
+    loading.value = true;
+    error.value = null;
+    try {
+      const [issuesResponse] = await Promise.all([
+        api.get<JiraIssueDto[]>(`/jira/boards/${id}/programs-overview`),
+        fetchSprintScope(id),
+      ]);
+      issues.value = issuesResponse.data;
+      await hydrateProgramColors(issues.value, keys =>
+        fetchIssuesByKeys(keys, { includeChangelog: false }),
+      );
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to fetch programs overview');
+      console.error('Error fetching programs overview:', err);
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true, includeChangelog = false) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
@@ -208,6 +232,7 @@ export const useJiraStore = defineStore('jira', () => {
     sprintScope,
     fetchConfig,
     fetchIssuesForBoard,
+    fetchProgramsOverview,
     fetchSprintScope,
     fetchIssuesByKeys,
     fetchIssueByKey,

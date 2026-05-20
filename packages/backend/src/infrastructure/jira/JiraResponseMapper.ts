@@ -12,12 +12,12 @@ export class JiraResponseMapper {
     fields: {
       summary: string;
       status: { name: string };
-      assignee?: { displayName: string } | null;
+      assignee?: { displayName: string; avatarUrls?: Record<string, string> } | null;
       priority?: { name: string } | null;
       issuetype: { name: string };
       description?: unknown;
-      customfield_10014?: string | null;
-      customfield_10013?: string | null;
+      customfield_10014?: string | { key?: string } | null;
+      customfield_10013?: string | { value?: string } | null;
       parent?: {
         id: string;
         key: string;

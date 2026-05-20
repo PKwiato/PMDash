@@ -110,6 +110,12 @@ export interface JiraUser {
 export interface IJiraAdapter {
   listBoards(): Promise<JiraBoard[]>;
   listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
+  /** All epics registered on the board (Agile API), including without child issues on board. */
+  listBoardEpics(boardId: number): Promise<JiraIssue[]>;
+  /** Program/Epic/Initiative issues for board projects (JQL). */
+  listBoardPrograms(boardId: number): Promise<JiraIssue[]>;
+  /** Merged board issues, board epics, and JQL programs for Programs overview. */
+  listProgramsOverview(boardId: number): Promise<JiraIssue[]>;
   listBoardIssues(boardId: number, sprintId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
   getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue>;

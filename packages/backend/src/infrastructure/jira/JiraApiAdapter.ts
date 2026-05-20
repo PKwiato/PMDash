@@ -1,4 +1,5 @@
 import type {
+  ClockworkWorklog,
   IJiraAdapter,
   JiraBoard,
   JiraBoardProgress,
@@ -84,20 +85,74 @@ export class JiraApiAdapter implements IJiraAdapter {
     return out;
   }
 
+  async listBoardEpics(boardId: number): Promise<JiraIssue[]> {
+    const out: JiraIssue[] = [];
+    let startAt = 0;
+    const maxResults = 50;
+    for (let page = 0; page < 40; page++) {
+      const data = await this.client.get<{
+        values: Array<Record<string, unknown>>;
+        isLast?: boolean;
+      }>(`/board/${boardId}/epic`, { startAt: String(startAt), maxResults: String(maxResults) }, 'agile');
+      for (const row of data.values) {
+        out.push(this.mapBoardEpicRow(row));
+      }
+      if (data.isLast === true || data.values.length < maxResults) break;
+      startAt += maxResults;
+    }
+    return out;
+  }
+
+  async listBoardPrograms(boardId: number): Promise<JiraIssue[]> {
+    const projects = await this.listBoardProjects(boardId);
+    if (projects.length === 0) return [];
+    const keys = projects.map(p => `"${p.key}"`).join(', ');
+    const issueTypes = await this.resolveProgramIssueTypeNames(projects);
+    const quotedTypes = issueTypes.map(n => `"${n.replace(/"/g, '\\"')}"`).join(', ');
+    const jql = `project in (${keys}) AND issuetype in (${quotedTypes}) ORDER BY summary`;
+    return this.searchIssuesPaginated(jql);
+  }
+
+  private async resolveProgramIssueTypeNames(
+    projects: JiraBoardProject[],
+  ): Promise<string[]> {
+    const names = new Set<string>(['Epic', 'Program', 'Initiative']);
+    for (const project of projects) {
+      try {
+        const types = await this.client.get<Array<{ name?: string }>>('/issuetype/project', {
+          projectId: project.id,
+        });
+        for (const t of types) {
+          const name = typeof t.name === 'string' ? t.name.trim() : '';
+          if (name && /epic|program|programme|initiative|portfolio/i.test(name)) {
+            names.add(name);
+          }
+        }
+      } catch {
+        // keep defaults
+      }
+    }
+    return [...names];
+  }
+
   async listBoardIssues(boardId: number, sprintId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]> {
     const path = sprintId
       ? `/board/${boardId}/sprint/${sprintId}/issue`
       : `/board/${boardId}/issue`;
-    const data = await this.client.get<{ issues: Array<Record<string, unknown>> }>(
-      path,
-      {
-        fields:
-          'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,issuelinks,subtasks,customfield_10004,created',
-        maxResults: '200',
-      },
-      'agile',
-    );
-    const mapped = data.issues.map(i => JiraResponseMapper.toIssue(i as never));
+    const fields =
+      'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,issuelinks,subtasks,customfield_10004,created';
+    const mapped: JiraIssue[] = [];
+    let startAt = 0;
+    const maxResults = 100;
+    for (let page = 0; page < 50; page++) {
+      const data = await this.client.get<{
+        issues: Array<Record<string, unknown>>;
+        isLast?: boolean;
+      }>(path, { fields, maxResults: String(maxResults), startAt: String(startAt) }, 'agile');
+      mapped.push(...data.issues.map(i => JiraResponseMapper.toIssue(i as never)));
+      if (data.isLast === true || data.issues.length < maxResults) break;
+      startAt += maxResults;
+    }
     if (!options?.includeChangelog) {
       return mapped;
     }
@@ -189,6 +244,72 @@ export class JiraApiAdapter implements IJiraAdapter {
         total: histories.length,
       },
     };
+  }
+
+  private mapBoardEpicRow(row: Record<string, unknown>): JiraIssue {
+    const colorObj = row.color as { key?: string } | undefined;
+    const colorKey = typeof colorObj?.key === 'string' ? colorObj.key : null;
+    const name = typeof row.name === 'string' ? row.name : typeof row.summary === 'string' ? row.summary : String(row.key ?? '');
+    const done = row.done === true;
+    return {
+      id: String(row.id ?? row.key ?? ''),
+      key: String(row.key ?? ''),
+      summary: name,
+      description: null,
+      status: done ? 'Done' : 'Open',
+      assignee: null,
+      assigneeAvatarUrl: null,
+      priority: 'Medium',
+      issueType: 'Epic',
+      epicKey: null,
+      epicColor: colorKey,
+    };
+  }
+
+  private async searchIssuesPaginated(jql: string): Promise<JiraIssue[]> {
+    const out: JiraIssue[] = [];
+    let startAt = 0;
+    const maxResults = 100;
+    for (let page = 0; page < 50; page++) {
+      const data = await this.client.get<{
+        issues: Array<Record<string, unknown>>;
+        isLast?: boolean;
+      }>('/search/jql', { jql, fields: ISSUE_FIELDS, maxResults: String(maxResults), startAt: String(startAt) });
+      out.push(...data.issues.map(i => JiraResponseMapper.toIssue(i as never)));
+      if (data.isLast === true || data.issues.length < maxResults) break;
+      startAt += maxResults;
+    }
+    return out;
+  }
+
+  private mergeIssueRecords(existing: JiraIssue, incoming: JiraIssue): JiraIssue {
+    return {
+      ...incoming,
+      epicColor: incoming.epicColor ?? existing.epicColor,
+      epicKey: incoming.epicKey ?? existing.epicKey,
+      parent: incoming.parent ?? existing.parent,
+      description: incoming.description ?? existing.description,
+      changelog: incoming.changelog ?? existing.changelog,
+      statusDwellBusinessDays: incoming.statusDwellBusinessDays ?? existing.statusDwellBusinessDays,
+      currentStatusBusinessDays: incoming.currentStatusBusinessDays ?? existing.currentStatusBusinessDays,
+      returnsCount: incoming.returnsCount ?? existing.returnsCount,
+    };
+  }
+
+  /** Board issues + all board epics + project programs (deduped). */
+  async listProgramsOverview(boardId: number): Promise<JiraIssue[]> {
+    const [boardIssues, boardEpics, jqlPrograms] = await Promise.all([
+      this.listBoardIssues(boardId, undefined, { includeChangelog: false }),
+      this.listBoardEpics(boardId).catch(() => [] as JiraIssue[]),
+      this.listBoardPrograms(boardId).catch(() => [] as JiraIssue[]),
+    ]);
+    const byKey = new Map<string, JiraIssue>();
+    for (const issue of [...boardIssues, ...boardEpics, ...jqlPrograms]) {
+      const k = issue.key.toUpperCase();
+      const prev = byKey.get(k);
+      byKey.set(k, prev ? this.mergeIssueRecords(prev, issue) : issue);
+    }
+    return [...byKey.values()];
   }
 
   async getBoardProgress(projectKey: string): Promise<JiraBoardProgress> {
