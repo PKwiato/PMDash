@@ -72,6 +72,8 @@ export interface JiraLinkedIssueDto {
   status: string;
   priority: string;
   issueType: string;
+  /** Raw Jira epic color (ghx-label-N) or hex. */
+  color?: string | null;
 }
 
 export interface JiraChangelogItemDto {
@@ -103,6 +105,8 @@ export interface JiraIssueDto {
   priority: string;
   issueType: string;
   epicKey: string | null;
+  epicColor?: string | null;
+  parent?: JiraLinkedIssueDto | null;
   comments?: JiraCommentDto[];
   linkedIssues?: JiraLinkedIssueDto[];
   subtasks?: JiraLinkedIssueDto[];

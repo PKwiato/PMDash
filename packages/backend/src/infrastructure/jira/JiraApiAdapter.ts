@@ -11,7 +11,7 @@ import { JiraApiClient } from './JiraApiClient';
 import { JiraResponseMapper } from './JiraResponseMapper';
 
 const ISSUE_FIELDS =
-  'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,comment,issuelinks,subtasks,customfield_10004,created';
+  'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,comment,issuelinks,subtasks,customfield_10004,created';
 
 async function mapWithConcurrency<T, R>(
   items: readonly T[],
@@ -92,7 +92,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       path,
       {
         fields:
-          'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,issuelinks,subtasks,customfield_10004,created',
+          'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,issuelinks,subtasks,customfield_10004,created',
         maxResults: '200',
       },
       'agile',

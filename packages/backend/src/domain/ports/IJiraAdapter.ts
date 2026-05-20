@@ -20,6 +20,8 @@ export interface JiraLinkedIssue {
   status: string;
   priority: string;
   issueType: string;
+  /** Raw Jira epic color token (e.g. ghx-label-10) or hex. */
+  color?: string | null;
 }
 
 export interface JiraChangelogItem {
@@ -51,6 +53,9 @@ export interface JiraIssue {
   priority: string;
   issueType: string;
   epicKey: string | null;
+  /** Epic color from Jira (customfield_10013), when set on this issue. */
+  epicColor?: string | null;
+  parent?: JiraLinkedIssue | null;
   comments?: JiraComment[];
   linkedIssues?: JiraLinkedIssue[];
   subtasks?: JiraLinkedIssue[];

@@ -1,4 +1,4 @@
-import type { JiraChangelogHistory, JiraIssue } from '../../domain/ports/IJiraAdapter';
+import type { JiraChangelogHistory, JiraIssue, JiraLinkedIssue } from '../../domain/ports/IJiraAdapter';
 import {
   businessDaysInCurrentStatusFromChangelog,
   returnsCountFromChangelog,
@@ -17,7 +17,18 @@ export class JiraResponseMapper {
       issuetype: { name: string };
       description?: unknown;
       customfield_10014?: string | null;
-      parent?: { key: string } | null;
+      customfield_10013?: string | null;
+      parent?: {
+        id: string;
+        key: string;
+        fields?: {
+          summary?: string;
+          status?: { name: string };
+          priority?: { name: string };
+          issuetype?: { name: string };
+          customfield_10013?: string | null;
+        };
+      } | null;
       created?: string;
     };
     changelog?: { histories?: unknown[] };
@@ -56,7 +67,9 @@ export class JiraResponseMapper {
       assigneeAvatarUrl: raw.fields.assignee?.avatarUrls?.['48x48'] ?? null,
       priority: raw.fields.priority?.name ?? 'Medium',
       issueType: raw.fields.issuetype.name,
-      epicKey: raw.fields.customfield_10014 ?? raw.fields.parent?.key ?? null,
+      epicKey: this.extractEpicKey(fields),
+      epicColor: this.extractEpicColor(fields),
+      parent: this.mapLinkedIssueRef(raw.fields.parent),
       comments: fields.comment?.comments?.map((c: any) => ({
         id: c.id,
         author: c.author?.displayName ?? 'Unknown',
@@ -87,6 +100,56 @@ export class JiraResponseMapper {
     }
 
     return issue;
+  }
+
+  private static extractEpicKey(fields: Record<string, unknown>): string | null {
+    const v = fields.customfield_10014;
+    if (typeof v === 'string' && v.trim()) return v.trim();
+    if (v && typeof v === 'object') {
+      const o = v as { key?: string };
+      if (typeof o.key === 'string' && o.key.trim()) return o.key.trim();
+    }
+    return null;
+  }
+
+  private static extractEpicColor(fields: Record<string, unknown>): string | null {
+    return this.parseColorField(fields.customfield_10013);
+  }
+
+  private static parseColorField(value: unknown): string | null {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (value && typeof value === 'object') {
+      const o = value as Record<string, unknown>;
+      if (typeof o.value === 'string' && o.value.trim()) return o.value.trim();
+      if (typeof o.key === 'string' && o.key.trim().startsWith('ghx-label')) return o.key.trim();
+    }
+    return null;
+  }
+
+  private static mapLinkedIssueRef(
+    ref: {
+      id: string;
+      key: string;
+      fields?: {
+        summary?: string;
+        status?: { name: string };
+        priority?: { name: string };
+        issuetype?: { name: string };
+        customfield_10013?: string | null;
+      };
+    } | null | undefined,
+  ): JiraLinkedIssue | null {
+    if (!ref?.key) return null;
+    const f = ref.fields;
+    return {
+      id: ref.id,
+      key: ref.key,
+      summary: f?.summary ?? ref.key,
+      status: f?.status?.name ?? 'Unknown',
+      priority: f?.priority?.name ?? 'Medium',
+      issueType: f?.issuetype?.name ?? 'Unknown',
+      color: f ? this.parseColorField(f.customfield_10013) : null,
+    };
   }
 
   private static mapChangelogHistories(rawHistories: unknown[]): JiraChangelogHistory[] {

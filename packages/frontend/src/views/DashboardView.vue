@@ -127,7 +127,10 @@
                   class="group hover:bg-surface-container transition-colors cursor-pointer"
                   @click="$router.push(`/tasks/${issue.key}`)">
                 <td class="px-lg py-3 text-sm font-bold text-on-surface group-hover:text-secondary transition-colors">{{ issue.key }}</td>
-                <td class="px-lg py-3 text-sm text-on-surface/90 font-medium truncate max-w-xs">{{ issue.summary }}</td>
+                <td class="px-lg py-3 text-sm text-on-surface/90 font-medium max-w-xs">
+                  <div class="truncate">{{ issue.summary }}</div>
+                  <JiraParentBadge :issue="issue" card-layout class="mt-1 w-fit" />
+                </td>
                 <td class="px-lg py-3 text-center">
                   <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider inline-block min-w-[70px]" :class="statusChipClass(issue)">
                     {{ issue.status }}
@@ -136,7 +139,7 @@
                 <td class="px-lg py-3">
                   <div class="flex items-center gap-2">
                     <div class="w-6 h-6 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center text-[10px] font-bold text-on-surface overflow-hidden">
-                      <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee" class="w-full h-full object-cover" />
+                      <img v-if="issue.assigneeAvatarUrl" :src="issue.assigneeAvatarUrl" :alt="issue.assignee ?? ''" class="w-full h-full object-cover" />
                       <span v-else-if="!issue.assignee" class="material-symbols-outlined text-xs opacity-50">person</span>
                       <span v-else>{{ issue.assignee.charAt(0) }}</span>
                     </div>
@@ -241,6 +244,7 @@ import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
 import { metricBucketForIssue } from '../utils/jiraIssueStatus';
 import type { JiraIssueDto } from '../types/api';
+import JiraParentBadge from '../components/JiraParentBadge.vue';
 
 const jiraStore = useJiraStore();
 const notesStore = useNotesStore();
