@@ -2,6 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { JiraResponseMapper } from './JiraResponseMapper';
 
+test('toIssue maps STATSCORE Team custom field when field id is set', () => {
+  JiraResponseMapper.setStatscoreTeamFieldId('customfield_10100');
+  const issue = JiraResponseMapper.toIssue({
+    id: '1',
+    key: 'PROG-1',
+    fields: {
+      summary: 'Program A',
+      status: { name: 'Open' },
+      issuetype: { name: 'Program' },
+      customfield_10100: { value: 'Collector' },
+    } as Parameters<typeof JiraResponseMapper.toIssue>[0]['fields'],
+  });
+  assert.equal(issue.statscoreTeam, 'Collector');
+  JiraResponseMapper.setStatscoreTeamFieldId(null);
+});
+
 test('toIssue maps parent and epicKey separately', () => {
   const issue = JiraResponseMapper.toIssue({
     id: '10001',

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { JiraIssueDto } from '../types/api';
-import { buildProgramsFromIssues, computeProgramsOverviewStats, taskDisplayStatus } from './jiraPrograms';
+import {
+  buildProgramsFromIssues,
+  computeProgramsOverviewStats,
+  isProgramCompleted,
+  programMatchesLifecycleFilter,
+  taskDisplayStatus,
+} from './jiraPrograms';
 
 const issue = (overrides: Partial<JiraIssueDto>): JiraIssueDto => ({
   id: '1',
@@ -47,4 +53,28 @@ test('computeProgramsOverviewStats', () => {
 
 test('taskDisplayStatus maps blocked to AT RISK', () => {
   assert.equal(taskDisplayStatus(issue({ status: 'Blocked' })), 'AT RISK');
+});
+
+test('isProgramCompleted uses Jira status or all tasks done', () => {
+  assert.equal(
+    isProgramCompleted({ status: 'Done', total: 5, done: 2, progressPercent: 40 }),
+    true,
+  );
+  assert.equal(
+    isProgramCompleted({ status: 'W toku', total: 4, done: 4, progressPercent: 100 }),
+    true,
+  );
+  assert.equal(
+    isProgramCompleted({ status: 'W toku', total: 4, done: 2, progressPercent: 50 }),
+    false,
+  );
+});
+
+test('programMatchesLifecycleFilter', () => {
+  const active = { status: 'W toku', total: 2, done: 1, progressPercent: 50 };
+  const done = { status: 'Gotowe', total: 0, done: 0, progressPercent: 0 };
+  assert.equal(programMatchesLifecycleFilter(active, 'active'), true);
+  assert.equal(programMatchesLifecycleFilter(active, 'completed'), false);
+  assert.equal(programMatchesLifecycleFilter(done, 'completed'), true);
+  assert.equal(programMatchesLifecycleFilter(done, 'active'), false);
 });

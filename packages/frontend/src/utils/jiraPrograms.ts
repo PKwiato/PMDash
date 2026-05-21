@@ -9,10 +9,16 @@ import { mapJiraStatusToKanbanColumn, metricBucketForIssue } from './jiraIssueSt
 
 export type ProgramTaskStatusLabel = 'ON TRACK' | 'AT RISK' | 'IN REVIEW' | 'DONE';
 
+/** Filter programs by Jira program status and linked-task completion. */
+export type ProgramLifecycleFilter = '' | 'active' | 'completed';
+
 export interface ProgramSummary {
   key: string;
   summary: string;
   issueType: string;
+  /** Jira status on the program/epic issue itself. */
+  status: string;
+  statscoreTeam: string | null;
   color: string | null;
   themeColor: string;
   todo: number;
@@ -22,6 +28,26 @@ export interface ProgramSummary {
   total: number;
   progressPercent: number;
   tasks: JiraIssueDto[];
+}
+
+/** Program is finished when Jira marks it done or all linked tasks are done. */
+export function isProgramCompleted(
+  program: Pick<ProgramSummary, 'status' | 'total' | 'done' | 'progressPercent'>,
+): boolean {
+  if (metricBucketForIssue(program.status) === 'done') return true;
+  if (program.total > 0 && program.done === program.total) return true;
+  if (program.total > 0 && program.progressPercent >= 100) return true;
+  return false;
+}
+
+export function programMatchesLifecycleFilter(
+  program: Pick<ProgramSummary, 'status' | 'total' | 'done' | 'progressPercent'>,
+  filter: ProgramLifecycleFilter,
+): boolean {
+  if (!filter) return true;
+  const completed = isProgramCompleted(program);
+  if (filter === 'completed') return completed;
+  return !completed;
 }
 
 export interface ProgramsOverviewStats {
@@ -64,6 +90,15 @@ function programRefFromIssue(issue: JiraIssueDto, allIssues: readonly JiraIssueD
 export function buildProgramsFromIssues(issues: readonly JiraIssueDto[]): ProgramSummary[] {
   const byKey = new Map<string, ProgramSummary>();
 
+  const programIssueForKey = (key: string): JiraIssueDto | undefined =>
+    issues.find(i => i.key.toUpperCase() === key.toUpperCase());
+
+  const programTeamForKey = (key: string): string | null =>
+    programIssueForKey(key)?.statscoreTeam?.trim() || null;
+
+  const programStatusForKey = (key: string, fallback?: string): string =>
+    programIssueForKey(key)?.status ?? fallback ?? 'Unknown';
+
   const ensureProgram = (ref: JiraLinkedIssueDto) => {
     const k = ref.key.toUpperCase();
     const existing = byKey.get(k);
@@ -72,6 +107,12 @@ export function buildProgramsFromIssues(issues: readonly JiraIssueDto[]): Progra
       if (existing.summary === existing.key && ref.summary !== ref.key) {
         existing.summary = ref.summary;
       }
+      if (!existing.statscoreTeam) {
+        existing.statscoreTeam = programTeamForKey(ref.key);
+      }
+      if (existing.status === 'Unknown') {
+        existing.status = programStatusForKey(ref.key, ref.status);
+      }
       return existing;
     }
     const themeColor = jiraEpicLabelBackground(ref.color, ref.key);
@@ -79,6 +120,8 @@ export function buildProgramsFromIssues(issues: readonly JiraIssueDto[]): Progra
       key: ref.key,
       summary: ref.summary,
       issueType: ref.issueType,
+      status: programStatusForKey(ref.key, ref.status),
+      statscoreTeam: programTeamForKey(ref.key),
       color: ref.color ?? null,
       themeColor,
       todo: 0,
@@ -140,6 +183,14 @@ export function buildProgramsFromIssues(issues: readonly JiraIssueDto[]): Progra
     return a.summary.localeCompare(b.summary, 'pl');
   });
   return programs;
+}
+
+export function collectStatscoreTeams(programs: readonly ProgramSummary[]): string[] {
+  const set = new Set<string>();
+  for (const p of programs) {
+    if (p.statscoreTeam) set.add(p.statscoreTeam);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, 'pl'));
 }
 
 export function computeProgramsOverviewStats(issues: readonly JiraIssueDto[]): ProgramsOverviewStats {

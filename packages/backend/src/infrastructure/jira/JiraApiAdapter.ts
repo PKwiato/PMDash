@@ -8,10 +8,11 @@ import type {
   JiraSprint,
   JiraUser,
 } from '../../domain/ports/IJiraAdapter';
+import { isProgramIssueType } from '../../domain/jira/programIssueTypes';
 import { JiraApiClient } from './JiraApiClient';
 import { JiraResponseMapper } from './JiraResponseMapper';
 
-const ISSUE_FIELDS =
+const ISSUE_FIELDS_BASE =
   'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,comment,issuelinks,subtasks,customfield_10004,created';
 
 async function mapWithConcurrency<T, R>(
@@ -34,7 +35,35 @@ async function mapWithConcurrency<T, R>(
 }
 
 export class JiraApiAdapter implements IJiraAdapter {
+  private issueFieldsCache: string | null = null;
+  private statscoreTeamFieldResolved = false;
+  private statscoreTeamFieldId: string | null = null;
+
   constructor(private readonly client: JiraApiClient) {}
+
+  private async resolveStatscoreTeamFieldId(): Promise<string | null> {
+    if (this.statscoreTeamFieldResolved) return this.statscoreTeamFieldId;
+    this.statscoreTeamFieldResolved = true;
+    try {
+      const fields = await this.client.get<Array<{ id?: string; name?: string }>>('/field');
+      const match = fields.find(
+        f => typeof f.name === 'string' && f.name.trim().toLowerCase() === 'statscore team',
+      );
+      this.statscoreTeamFieldId = typeof match?.id === 'string' ? match.id : null;
+      JiraResponseMapper.setStatscoreTeamFieldId(this.statscoreTeamFieldId);
+    } catch {
+      this.statscoreTeamFieldId = null;
+      JiraResponseMapper.setStatscoreTeamFieldId(null);
+    }
+    return this.statscoreTeamFieldId;
+  }
+
+  private async issueFields(): Promise<string> {
+    if (this.issueFieldsCache) return this.issueFieldsCache;
+    const teamId = await this.resolveStatscoreTeamFieldId();
+    this.issueFieldsCache = teamId ? `${ISSUE_FIELDS_BASE},${teamId}` : ISSUE_FIELDS_BASE;
+    return this.issueFieldsCache;
+  }
 
   async listBoards(): Promise<JiraBoard[]> {
     const out: JiraBoard[] = [];
@@ -119,12 +148,15 @@ export class JiraApiAdapter implements IJiraAdapter {
     const names = new Set<string>(['Epic', 'Program', 'Initiative']);
     for (const project of projects) {
       try {
-        const types = await this.client.get<Array<{ name?: string }>>('/issuetype/project', {
-          projectId: project.id,
-        });
+        const types = await this.client.get<Array<{ name?: string; hierarchyLevel?: number }>>(
+          '/issuetype/project',
+          { projectId: project.id },
+        );
         for (const t of types) {
           const name = typeof t.name === 'string' ? t.name.trim() : '';
-          if (name && /epic|program|programme|initiative|portfolio/i.test(name)) {
+          if (!name) continue;
+          if (t.hierarchyLevel === 1) names.add(name);
+          if (/epic|program|programme|initiative|portfolio|theme|capability/i.test(name)) {
             names.add(name);
           }
         }
@@ -139,8 +171,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     const path = sprintId
       ? `/board/${boardId}/sprint/${sprintId}/issue`
       : `/board/${boardId}/issue`;
-    const fields =
-      'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,issuelinks,subtasks,customfield_10004,created';
+    const fields = await this.issueFields();
     const mapped: JiraIssue[] = [];
     let startAt = 0;
     const maxResults = 100;
@@ -188,7 +219,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       return JiraResponseMapper.toIssue(raw as never);
     }
     const data = await this.client.get<unknown>(`/issue/${key}`, {
-      fields: ISSUE_FIELDS,
+      fields: await this.issueFields(),
     });
     return JiraResponseMapper.toIssue(data as never);
   }
@@ -196,7 +227,7 @@ export class JiraApiAdapter implements IJiraAdapter {
   /** Loads issue JSON with `expand=changelog` and follows `/issue/{key}/changelog` pagination when needed. */
   private async fetchRawIssueWithFullChangelog(encodedIssueKey: string): Promise<Record<string, unknown>> {
     const data = await this.client.get<Record<string, unknown>>(`/issue/${encodedIssueKey}`, {
-      fields: ISSUE_FIELDS,
+      fields: await this.issueFields(),
       expand: 'changelog',
     });
     const changelog = data.changelog as
@@ -268,18 +299,49 @@ export class JiraApiAdapter implements IJiraAdapter {
 
   private async searchIssuesPaginated(jql: string): Promise<JiraIssue[]> {
     const out: JiraIssue[] = [];
-    let startAt = 0;
     const maxResults = 100;
-    for (let page = 0; page < 50; page++) {
+    const fields = await this.issueFields();
+    let nextPageToken: string | undefined;
+    for (let page = 0; page < 100; page++) {
+      const params: Record<string, string> = { jql, fields, maxResults: String(maxResults) };
+      if (nextPageToken) params.nextPageToken = nextPageToken;
       const data = await this.client.get<{
         issues: Array<Record<string, unknown>>;
         isLast?: boolean;
-      }>('/search/jql', { jql, fields: ISSUE_FIELDS, maxResults: String(maxResults), startAt: String(startAt) });
+        nextPageToken?: string | null;
+      }>('/search/jql', params);
       out.push(...data.issues.map(i => JiraResponseMapper.toIssue(i as never)));
-      if (data.isLast === true || data.issues.length < maxResults) break;
-      startAt += maxResults;
+      const token = data.nextPageToken;
+      if (data.isLast === true || !token || data.issues.length === 0) break;
+      nextPageToken = token;
     }
     return out;
+  }
+
+  private collectReferencedProgramKeys(issues: readonly JiraIssue[]): string[] {
+    const keys = new Set<string>();
+    for (const issue of issues) {
+      if (issue.epicKey?.trim()) keys.add(issue.epicKey.trim());
+      if (issue.parent?.key && isProgramIssueType(issue.parent.issueType)) {
+        keys.add(issue.parent.key);
+      }
+    }
+    return [...keys];
+  }
+
+  private async fetchMissingProgramIssues(
+    byKey: Map<string, JiraIssue>,
+    boardIssues: readonly JiraIssue[],
+  ): Promise<void> {
+    const referenced = this.collectReferencedProgramKeys(boardIssues);
+    const missing = referenced.filter(k => !byKey.has(k.toUpperCase()));
+    if (missing.length === 0) return;
+    const fetched = await this.listIssuesByKeys(missing);
+    for (const issue of fetched) {
+      const k = issue.key.toUpperCase();
+      const prev = byKey.get(k);
+      byKey.set(k, prev ? this.mergeIssueRecords(prev, issue) : issue);
+    }
   }
 
   private mergeIssueRecords(existing: JiraIssue, incoming: JiraIssue): JiraIssue {
@@ -293,11 +355,28 @@ export class JiraApiAdapter implements IJiraAdapter {
       statusDwellBusinessDays: incoming.statusDwellBusinessDays ?? existing.statusDwellBusinessDays,
       currentStatusBusinessDays: incoming.currentStatusBusinessDays ?? existing.currentStatusBusinessDays,
       returnsCount: incoming.returnsCount ?? existing.returnsCount,
+      statscoreTeam: incoming.statscoreTeam ?? existing.statscoreTeam,
     };
+  }
+
+  /** Board epics from Agile API lack custom fields (e.g. STATSCORE Team); load full issues. */
+  private async enrichBoardEpicsInMap(
+    byKey: Map<string, JiraIssue>,
+    boardEpics: readonly JiraIssue[],
+  ): Promise<void> {
+    const keys = boardEpics.map(e => e.key).filter(Boolean);
+    if (keys.length === 0) return;
+    const enriched = await this.listIssuesByKeys(keys);
+    for (const issue of enriched) {
+      const k = issue.key.toUpperCase();
+      const prev = byKey.get(k);
+      byKey.set(k, prev ? this.mergeIssueRecords(prev, issue) : issue);
+    }
   }
 
   /** Board issues + all board epics + project programs (deduped). */
   async listProgramsOverview(boardId: number): Promise<JiraIssue[]> {
+    await this.resolveStatscoreTeamFieldId();
     const [boardIssues, boardEpics, jqlPrograms] = await Promise.all([
       this.listBoardIssues(boardId, undefined, { includeChangelog: false }),
       this.listBoardEpics(boardId).catch(() => [] as JiraIssue[]),
@@ -309,6 +388,8 @@ export class JiraApiAdapter implements IJiraAdapter {
       const prev = byKey.get(k);
       byKey.set(k, prev ? this.mergeIssueRecords(prev, issue) : issue);
     }
+    await this.enrichBoardEpicsInMap(byKey, boardEpics);
+    await this.fetchMissingProgramIssues(byKey, boardIssues);
     return [...byKey.values()];
   }
 
@@ -353,7 +434,7 @@ export class JiraApiAdapter implements IJiraAdapter {
       '/search/jql',
       {
         jql,
-        fields: ISSUE_FIELDS,
+        fields: await this.issueFields(),
         maxResults: String(uniq.length),
       },
     );

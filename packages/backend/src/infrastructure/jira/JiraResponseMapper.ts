@@ -6,6 +6,16 @@ import {
 } from '../../domain/jira/statusDwellFromChangelog';
 
 export class JiraResponseMapper {
+  private static statscoreTeamFieldId: string | null = null;
+
+  static setStatscoreTeamFieldId(fieldId: string | null): void {
+    this.statscoreTeamFieldId = fieldId;
+  }
+
+  static getStatscoreTeamFieldId(): string | null {
+    return this.statscoreTeamFieldId;
+  }
+
   static toIssue(raw: {
     id: string;
     key: string;
@@ -80,6 +90,7 @@ export class JiraResponseMapper {
       linkedIssues,
       subtasks,
       storyPoints: fields.customfield_10004 ?? null,
+      statscoreTeam: this.extractStatscoreTeam(fields),
     };
 
     const created = typeof fields.created === 'string' ? fields.created : undefined;
@@ -114,6 +125,29 @@ export class JiraResponseMapper {
 
   private static extractEpicColor(fields: Record<string, unknown>): string | null {
     return this.parseColorField(fields.customfield_10013);
+  }
+
+  private static extractStatscoreTeam(fields: Record<string, unknown>): string | null {
+    const fieldId = this.statscoreTeamFieldId;
+    if (!fieldId) return null;
+    return this.parseTeamFieldValue(fields[fieldId]);
+  }
+
+  private static parseTeamFieldValue(value: unknown): string | null {
+    if (value == null) return null;
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (Array.isArray(value)) {
+      const parts = value
+        .map(v => this.parseTeamFieldValue(v))
+        .filter((v): v is string => Boolean(v));
+      return parts.length > 0 ? parts.join(', ') : null;
+    }
+    if (typeof value === 'object') {
+      const o = value as Record<string, unknown>;
+      if (typeof o.value === 'string' && o.value.trim()) return o.value.trim();
+      if (typeof o.name === 'string' && o.name.trim()) return o.name.trim();
+    }
+    return null;
   }
 
   private static parseColorField(value: unknown): string | null {

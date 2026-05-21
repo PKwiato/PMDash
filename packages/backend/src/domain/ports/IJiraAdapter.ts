@@ -67,6 +67,8 @@ export interface JiraIssue {
   currentStatusBusinessDays?: number;
   /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
   returnsCount?: number;
+  /** Jira custom field "STATSCORE Team" (when configured on the instance). */
+  statscoreTeam?: string | null;
 }
 
 export interface JiraSprint {

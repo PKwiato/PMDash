@@ -118,6 +118,8 @@ export interface JiraIssueDto {
   currentStatusBusinessDays?: number;
   /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
   returnsCount?: number;
+  /** Jira custom field "STATSCORE Team". */
+  statscoreTeam?: string | null;
 }
 
 export type JiraSprintScopeMode = 'active_sprint' | 'whole_board';
