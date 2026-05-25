@@ -386,6 +386,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import type { JiraIssueDto } from '../types/api';
 import { useJiraStore } from '../stores/jiraStore';
 import JiraEpicLabel from '../components/JiraEpicLabel.vue';
 import {
@@ -402,7 +403,6 @@ import {
   type ProgramTaskStatusLabel,
 } from '../utils/jiraPrograms';
 import { programBadgeForIssue } from '../utils/jiraIssueHierarchy';
-import { isProgramIssueType } from '../utils/jiraEpicColors';
 import {
   defaultTeamFilterForBoard,
   issueMatchesSearch,
@@ -551,16 +551,23 @@ function showAllTeams() {
   includeUnassignedTeams.value = true;
 }
 
-const allowedProgramKeys = computed(() => new Set(filteredPrograms.value.map(p => p.key.toUpperCase())));
-
 const overview = computed(() => {
-  const tasks = jiraStore.issues.filter(i => {
-    if (isProgramIssueType(i.issueType)) return false;
-    const pk = taskProgramKey(i);
-    return pk && allowedProgramKeys.value.has(pk.toUpperCase());
-  });
+  const tasks = collectTasksForFilteredPrograms();
   return computeProgramsOverviewStats(tasks);
 });
+
+function collectTasksForFilteredPrograms(): JiraIssueDto[] {
+  const seen = new Set<string>();
+  const out: JiraIssueDto[] = [];
+  for (const program of filteredPrograms.value) {
+    for (const task of program.tasks) {
+      if (seen.has(task.key)) continue;
+      seen.add(task.key);
+      out.push(task);
+    }
+  }
+  return out;
+}
 
 const selectedProgramTitle = computed(() => {
   if (!selectedProgramKey.value) return '';
@@ -569,18 +576,16 @@ const selectedProgramTitle = computed(() => {
 
 const filteredTableRows = computed(() => {
   const programByKey = new Map(filteredPrograms.value.map(p => [p.key.toUpperCase(), p]));
-  let tasks = jiraStore.issues.filter(i => {
-    const pk = taskProgramKey(i);
-    return pk && allowedProgramKeys.value.has(pk.toUpperCase());
-  });
+  let tasks = collectTasksForFilteredPrograms();
 
   if (selectedProgramKey.value) {
     const k = selectedProgramKey.value.toUpperCase();
-    tasks = tasks.filter(i => taskProgramKey(i)?.toUpperCase() === k);
+    const program = programByKey.get(k);
+    tasks = program?.tasks ?? tasks.filter(i => taskProgramKey(i, jiraStore.issues)?.toUpperCase() === k);
   }
 
   const rows = tasks.map(issue => {
-    const pk = taskProgramKey(issue)!;
+    const pk = taskProgramKey(issue, jiraStore.issues)!;
     const program = programByKey.get(pk.toUpperCase());
     const statusLabel = taskDisplayStatus(issue);
     const programRef = programBadgeForIssue(issue, jiraStore.issues) ?? (program

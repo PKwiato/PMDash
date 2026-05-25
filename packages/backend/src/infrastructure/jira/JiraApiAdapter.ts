@@ -329,6 +329,45 @@ export class JiraApiAdapter implements IJiraAdapter {
     return [...keys];
   }
 
+  private collectProgramKeysFromMap(byKey: Map<string, JiraIssue>): string[] {
+    return [...byKey.values()]
+      .filter(i => isProgramIssueType(i.issueType))
+      .map(i => i.key)
+      .filter(Boolean);
+  }
+
+  /** Tasks linked via Epic Link / parent but not on the agile board. */
+  private async fetchIssuesLinkedToPrograms(byKey: Map<string, JiraIssue>): Promise<void> {
+    const programKeys = this.collectProgramKeysFromMap(byKey);
+    if (programKeys.length === 0) return;
+
+    const chunkSize = 40;
+    for (let i = 0; i < programKeys.length; i += chunkSize) {
+      const chunk = programKeys.slice(i, i + chunkSize);
+      const quoted = chunk.join(', ');
+      const jql = `("Epic Link" in (${quoted}) OR parent in (${quoted})) ORDER BY updated DESC`;
+      try {
+        const linked = await this.searchIssuesPaginated(jql);
+        for (const issue of linked) {
+          if (isProgramIssueType(issue.issueType)) continue;
+          const k = issue.key.toUpperCase();
+          const prev = byKey.get(k);
+          byKey.set(k, prev ? this.mergeIssueRecords(prev, issue) : issue);
+        }
+      } catch {
+        // fallback without Epic Link clause if field name differs
+        const jqlParent = `parent in (${quoted}) ORDER BY updated DESC`;
+        const linked = await this.searchIssuesPaginated(jqlParent);
+        for (const issue of linked) {
+          if (isProgramIssueType(issue.issueType)) continue;
+          const k = issue.key.toUpperCase();
+          const prev = byKey.get(k);
+          byKey.set(k, prev ? this.mergeIssueRecords(prev, issue) : issue);
+        }
+      }
+    }
+  }
+
   private async fetchMissingProgramIssues(
     byKey: Map<string, JiraIssue>,
     boardIssues: readonly JiraIssue[],
@@ -390,6 +429,7 @@ export class JiraApiAdapter implements IJiraAdapter {
     }
     await this.enrichBoardEpicsInMap(byKey, boardEpics);
     await this.fetchMissingProgramIssues(byKey, boardIssues);
+    await this.fetchIssuesLinkedToPrograms(byKey);
     return [...byKey.values()];
   }
 

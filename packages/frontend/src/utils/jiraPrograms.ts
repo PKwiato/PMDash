@@ -4,6 +4,7 @@ import {
   enrichLinkedColor,
   programBadgeForIssue,
   resolveEpic,
+  resolveProgramKey,
 } from './jiraIssueHierarchy';
 import { mapJiraStatusToKanbanColumn, metricBucketForIssue } from './jiraIssueStatus';
 
@@ -57,7 +58,8 @@ export interface ProgramsOverviewStats {
   doneTasks: number;
 }
 
-export function taskProgramKey(issue: JiraIssueDto): string | null {
+export function taskProgramKey(issue: JiraIssueDto, allIssues?: readonly JiraIssueDto[]): string | null {
+  if (allIssues?.length) return resolveProgramKey(issue, allIssues);
   if (issue.epicKey) return issue.epicKey;
   if (issue.parent && isProgramIssueType(issue.parent.issueType)) return issue.parent.key;
   return null;
@@ -143,7 +145,7 @@ export function buildProgramsFromIssues(issues: readonly JiraIssueDto[]): Progra
   }
 
   for (const issue of issues) {
-    const pk = taskProgramKey(issue);
+    const pk = taskProgramKey(issue, issues);
     if (!pk) continue;
     const epic = resolveEpic(issue, issues);
     const parentProgram =
@@ -157,7 +159,7 @@ export function buildProgramsFromIssues(issues: readonly JiraIssueDto[]): Progra
 
   for (const issue of issues) {
     if (isProgramIssueType(issue.issueType)) continue;
-    const pk = taskProgramKey(issue);
+    const pk = taskProgramKey(issue, issues);
     if (!pk) continue;
     const program = byKey.get(pk.toUpperCase());
     if (!program) continue;

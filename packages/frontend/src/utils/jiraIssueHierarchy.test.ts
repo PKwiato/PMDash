@@ -6,6 +6,7 @@ import {
   collectProgramKeysToHydrate,
   programBadgeForIssue,
   resolveEpic,
+  resolveProgramKey,
 } from './jiraIssueHierarchy';
 
 const baseIssue = (overrides: Partial<JiraIssueDto>): JiraIssueDto => ({
@@ -20,6 +21,15 @@ const baseIssue = (overrides: Partial<JiraIssueDto>): JiraIssueDto => ({
   issueType: 'Task',
   epicKey: null,
   ...overrides,
+});
+
+test('resolveProgramKey walks parent chain to epic on ancestor', () => {
+  const program = baseIssue({ key: 'PROG-1', issueType: 'Program' });
+  const story = baseIssue({ key: 'ST-1', issueType: 'Story', parent: { id: 'p', key: 'PROG-1', summary: 'P', status: 'Open', priority: 'M', issueType: 'Program' } });
+  const sub = baseIssue({ key: 'SUB-1', issueType: 'Sub-task', parent: { id: 's', key: 'ST-1', summary: 'S', status: 'Open', priority: 'M', issueType: 'Story' } });
+  const issues = [program, story, sub];
+  story.epicKey = 'PROG-1';
+  assert.equal(resolveProgramKey(sub, issues), 'PROG-1');
 });
 
 test('resolveEpic returns issue from store when present', () => {

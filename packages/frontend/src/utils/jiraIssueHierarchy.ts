@@ -91,6 +91,28 @@ export function ancestorsForDisplay(
   return out;
 }
 
+/**
+ * Program/epic key for a task: Epic Link, direct program parent, or walk parent chain.
+ */
+export function resolveProgramKey(
+  issue: JiraIssueDto,
+  allIssues: readonly JiraIssueDto[],
+  visited: Set<string> = new Set(),
+): string | null {
+  const self = issue.key.toUpperCase();
+  if (visited.has(self)) return null;
+  visited.add(self);
+
+  if (issue.epicKey) return issue.epicKey;
+  if (issue.parent && isProgramIssueType(issue.parent.issueType)) return issue.parent.key;
+
+  if (issue.parent?.key) {
+    const parentIssue = allIssues.find(i => i.key.toUpperCase() === issue.parent!.key.toUpperCase());
+    if (parentIssue) return resolveProgramKey(parentIssue, allIssues, visited);
+  }
+  return null;
+}
+
 /** Colored program/epic badge: epic link first, else parent when it is a Program/Epic. */
 export function programBadgeForIssue(
   issue: JiraIssueDto,
