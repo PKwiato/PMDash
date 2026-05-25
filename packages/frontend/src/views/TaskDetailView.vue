@@ -5,10 +5,8 @@
       <div class="flex items-center gap-2">
         <span class="text-slate-400 font-label-sm text-label-sm uppercase">Projects</span>
         <span class="text-slate-300">/</span>
-        <router-link v-if="issue?.epicKey" :to="`/tasks/${issue.epicKey}`" class="text-slate-400 font-label-sm text-label-sm uppercase hover:text-secondary">
-          {{ issue.epicKey }}
-        </router-link>
-        <span v-if="issue?.epicKey" class="text-slate-300">/</span>
+        <JiraParentBadge v-if="issue" :issue="issue" variant="breadcrumb" />
+        <span v-if="issue && (issue.epicKey || issue.parent)" class="text-slate-300">/</span>
         <span class="text-slate-400 font-label-sm text-label-sm uppercase">{{ issueId }}</span>
         <span v-if="issue" class="text-slate-300">/</span>
         <span v-if="issue" class="text-slate-900 font-label-md text-label-md">{{ issue.summary }}</span>
@@ -44,7 +42,18 @@
                 </span>
               </div>
             </div>
-            <div class="grid gap-6 py-4 border-y border-slate-100" :class="issue.returnsCount ? 'grid-cols-4' : 'grid-cols-3'">
+            <div class="grid gap-6 py-4 border-y border-slate-100 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <div v-if="displayEpic">
+                <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Epic</p>
+                <JiraEpicLabel :issue="displayEpic" class="max-w-full" />
+              </div>
+              <div v-if="displayParent">
+                <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Parent</p>
+                <router-link :to="`/tasks/${displayParent.key}`" class="font-body-md text-secondary hover:underline flex items-center gap-2 min-w-0" :title="displayParent.summary">
+                  <JiraEpicColorDot :color="displayParent.color" size="md" />
+                  <span class="truncate">{{ displayParent.key }} · {{ displayParent.summary }}</span>
+                </router-link>
+              </div>
               <div>
                 <p class="text-slate-400 font-label-sm text-label-sm uppercase mb-1">Assignee</p>
                 <div class="flex items-center gap-2" v-if="issue.assignee">
@@ -351,6 +360,10 @@ import { useProjectsStore } from '../stores/projectsStore';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import MilkdownWrapper from '../components/MilkdownWrapper.vue';
+import JiraParentBadge from '../components/JiraParentBadge.vue';
+import JiraEpicColorDot from '../components/JiraEpicColorDot.vue';
+import JiraEpicLabel from '../components/JiraEpicLabel.vue';
+import { enrichLinkedColor, programBadgeForIssue } from '../utils/jiraIssueHierarchy';
 
 const route = useRoute();
 const jiraStore = useJiraStore();
@@ -397,6 +410,18 @@ onUnmounted(() => {
 });
 
 const issue = computed(() => jiraStore.issues.find(i => i.key === issueId.value));
+
+const displayEpic = computed(() => {
+  if (!issue.value) return null;
+  return programBadgeForIssue(issue.value, jiraStore.issues);
+});
+
+const displayParent = computed(() => {
+  if (!issue.value?.parent) return null;
+  const program = displayEpic.value;
+  if (program && issue.value.parent.key.toUpperCase() === program.key.toUpperCase()) return null;
+  return enrichLinkedColor(issue.value.parent, jiraStore.issues);
+});
 
 const mentionedIssues = computed(() => {
   if (!issue.value?.description) return [];

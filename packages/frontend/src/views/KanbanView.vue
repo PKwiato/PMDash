@@ -39,22 +39,25 @@
               class="bg-surface-container-lowest border border-outline-variant p-3 shadow-sm hover:shadow-md hover:border-secondary/50 transition-all cursor-pointer rounded-xl group"
               @click="router.push(`/tasks/${issue.key}`)">
               
-              <!-- Summary (Main focus) -->
-              <h3 class="text-[13px] font-bold text-on-surface mb-1 leading-snug group-hover:text-secondary transition-colors">
+              <!-- Summary (like Jira board card) -->
+              <h3 class="text-[13px] font-semibold text-on-surface mb-1.5 leading-snug group-hover:text-secondary transition-colors">
                 {{ issue.summary }}
               </h3>
 
-              <!-- Metadata Row 1: Assignee Name (Subtle) -->
-              <p class="text-[11px] text-on-surface-variant/70 mb-3 font-medium">{{ issue.assignee || 'Unassigned' }}</p>
+              <!-- Epic badge directly under title -->
+              <JiraParentBadge :issue="issue" card-layout class="mb-2" />
 
-              <!-- Metadata Row 2: Labels / Version -->
-              <div class="flex flex-wrap gap-1.5 mb-3">
+              <!-- Labels / version (outline badges) -->
+              <div class="flex flex-wrap gap-1.5 mb-2">
                 <!-- Label -->
-                <span class="px-1.5 py-0.5 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider rounded dark:bg-primary/20">
+                <span
+                  v-if="issue.issueType && issue.issueType !== 'Story' && issue.issueType !== 'Task'"
+                  class="px-1.5 py-0.5 border border-outline-variant text-on-surface-variant text-[9px] font-bold uppercase rounded-[3px]"
+                >
                   {{ issue.issueType }}
                 </span>
                 <!-- Version / Markers -->
-                <span class="px-1.5 py-0.5 border border-outline-variant text-on-surface-variant text-[9px] font-bold uppercase rounded" v-if="issue.key.startsWith('DESKTOP')">
+                <span class="px-1.5 py-0.5 border border-outline-variant text-on-surface-variant text-[9px] font-bold uppercase rounded-[3px]" v-if="issue.key.startsWith('DESKTOP')">
                   DESKTOP/2.29.0
                 </span>
                 <span class="px-1.5 py-0.5 bg-error/10 text-error text-[9px] font-black uppercase rounded dark:bg-error/20" v-if="issue.priority === 'Highest'">
@@ -123,6 +126,7 @@ import { onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 import { KANBAN_COLUMNS, groupIssuesByKanbanColumn, type KanbanColumn } from '../utils/jiraIssueStatus';
+import JiraParentBadge from '../components/JiraParentBadge.vue';
 
 const router = useRouter();
 const jiraStore = useJiraStore();

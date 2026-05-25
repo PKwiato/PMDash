@@ -250,6 +250,7 @@
               <span class="font-label-md text-label-md text-secondary w-16">{{ issue.key }}</span>
               <div>
                 <p class="font-body-md text-body-md text-on-surface">{{ issue.summary }}</p>
+                <JiraParentBadge :issue="issue" card-layout class="mt-1 w-fit" />
                 <div class="flex items-center gap-2 mt-1">
                   <span class="inline-block w-2 h-2 rounded-full" :class="{
                       'bg-green-500': issue.status === 'Done',
@@ -439,6 +440,7 @@ import { useProjectsStore } from '../stores/projectsStore';
 import { useTagsStore } from '../stores/tagsStore';
 import { useRoute, useRouter } from 'vue-router';
 import MilkdownWrapper from '../components/MilkdownWrapper.vue';
+import JiraParentBadge from '../components/JiraParentBadge.vue';
 
 const notesStore = useNotesStore();
 const jiraStore = useJiraStore();

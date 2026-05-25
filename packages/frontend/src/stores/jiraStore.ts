@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { JiraIssueDto, JiraSprintScopeDto } from '../types/api';
 import { api, getApiErrorMessage } from '../api/client';
+import { collectProgramKeysToHydrate } from '../utils/jiraIssueHierarchy';
 
 /**
  * Bulk sync (e.g. from note bodies) returns issues without changelog. If we already
@@ -23,6 +24,8 @@ function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): 
   if (prevRich && nextLight) {
     return {
       ...next,
+      epicColor: next.epicColor ?? prev.epicColor,
+      parent: next.parent ?? prev.parent,
       created: next.created ?? prev.created,
       changelog: prev.changelog,
       statusDwellBusinessDays: prev.statusDwellBusinessDays,
@@ -30,7 +33,25 @@ function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): 
       returnsCount: prev.returnsCount,
     };
   }
-  return next;
+  const parent =
+    next.parent && prev.parent
+      ? { ...next.parent, color: next.parent.color ?? prev.parent.color }
+      : (next.parent ?? prev.parent);
+
+  return {
+    ...next,
+    epicColor: next.epicColor ?? prev.epicColor,
+    parent,
+  };
+}
+
+async function hydrateProgramColors(
+  issueList: JiraIssueDto[],
+  fetchByKeys: (keys: string[]) => Promise<JiraIssueDto[]>,
+): Promise<void> {
+  const keys = collectProgramKeysToHydrate(issueList);
+  if (keys.length === 0) return;
+  await fetchByKeys(keys);
 }
 
 export const useJiraStore = defineStore('jira', () => {
@@ -90,6 +111,30 @@ export const useJiraStore = defineStore('jira', () => {
     }
   }
 
+  /** Full program list: board issues (paginated) + board epics + JQL programs. */
+  async function fetchProgramsOverview(boardId?: number) {
+    const id = boardId || defaultBoardId.value;
+    if (!id) return;
+
+    loading.value = true;
+    error.value = null;
+    try {
+      const [issuesResponse] = await Promise.all([
+        api.get<JiraIssueDto[]>(`/jira/boards/${id}/programs-overview`),
+        fetchSprintScope(id),
+      ]);
+      issues.value = issuesResponse.data;
+      await hydrateProgramColors(issues.value, keys =>
+        fetchIssuesByKeys(keys, { includeChangelog: false }),
+      );
+    } catch (err: unknown) {
+      error.value = getApiErrorMessage(err, 'Failed to fetch programs overview');
+      console.error('Error fetching programs overview:', err);
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function fetchIssuesForBoard(boardId?: number, activeSprintOnly = true, includeChangelog = false) {
     const id = boardId || defaultBoardId.value;
     if (!id) return;
@@ -107,6 +152,9 @@ export const useJiraStore = defineStore('jira', () => {
         fetchSprintScope(id),
       ]);
       issues.value = issuesResponse.data;
+      await hydrateProgramColors(issues.value, keys =>
+        fetchIssuesByKeys(keys, { includeChangelog: false }),
+      );
     } catch (err: unknown) {
       error.value = getApiErrorMessage(err, 'Failed to fetch issues');
       console.error('Error fetching Jira issues:', err);
@@ -184,6 +232,7 @@ export const useJiraStore = defineStore('jira', () => {
     sprintScope,
     fetchConfig,
     fetchIssuesForBoard,
+    fetchProgramsOverview,
     fetchSprintScope,
     fetchIssuesByKeys,
     fetchIssueByKey,

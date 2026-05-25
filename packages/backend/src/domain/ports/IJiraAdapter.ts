@@ -20,6 +20,8 @@ export interface JiraLinkedIssue {
   status: string;
   priority: string;
   issueType: string;
+  /** Raw Jira epic color token (e.g. ghx-label-10) or hex. */
+  color?: string | null;
 }
 
 export interface JiraChangelogItem {
@@ -51,6 +53,9 @@ export interface JiraIssue {
   priority: string;
   issueType: string;
   epicKey: string | null;
+  /** Epic color from Jira (customfield_10013), when set on this issue. */
+  epicColor?: string | null;
+  parent?: JiraLinkedIssue | null;
   comments?: JiraComment[];
   linkedIssues?: JiraLinkedIssue[];
   subtasks?: JiraLinkedIssue[];
@@ -62,6 +67,8 @@ export interface JiraIssue {
   currentStatusBusinessDays?: number;
   /** Liczba powrotów taska z kolumn prawych do lewych (np. z testów do dev). */
   returnsCount?: number;
+  /** Jira custom field "STATSCORE Team" (when configured on the instance). */
+  statscoreTeam?: string | null;
 }
 
 export interface JiraSprint {
@@ -105,6 +112,12 @@ export interface JiraUser {
 export interface IJiraAdapter {
   listBoards(): Promise<JiraBoard[]>;
   listBoardProjects(boardId: number): Promise<JiraBoardProject[]>;
+  /** All epics registered on the board (Agile API), including without child issues on board. */
+  listBoardEpics(boardId: number): Promise<JiraIssue[]>;
+  /** Program/Epic/Initiative issues for board projects (JQL). */
+  listBoardPrograms(boardId: number): Promise<JiraIssue[]>;
+  /** Merged board issues, board epics, and JQL programs for Programs overview. */
+  listProgramsOverview(boardId: number): Promise<JiraIssue[]>;
   listBoardIssues(boardId: number, sprintId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
   getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue>;

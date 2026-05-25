@@ -100,6 +100,24 @@ export function jiraRouter(
     }
   });
 
+  r.get('/boards/:boardId/programs-overview', async (req, res, next) => {
+    try {
+      if (!jiraAdapter) {
+        res.status(503).json({ error: 'Jira not configured' });
+        return;
+      }
+      const boardId = Number((req.params as { boardId: string }).boardId);
+      if (!Number.isFinite(boardId) || boardId < 1) {
+        res.status(400).json({ error: 'Invalid boardId' });
+        return;
+      }
+      const issues = await jiraAdapter.listProgramsOverview(boardId);
+      res.json(issues);
+    } catch (e) {
+      next(e);
+    }
+  });
+
   r.get('/boards/:boardId/issues', async (req, res, next) => {
     try {
       if (!jiraAdapter) {

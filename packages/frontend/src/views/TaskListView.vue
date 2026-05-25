@@ -147,6 +147,7 @@
                           <span>Przypięta</span>
                         </span>
                       </div>
+                      <JiraParentBadge :issue="issue" card-layout class="w-fit" />
                       <span class="text-label-sm text-on-surface-variant">{{ issue.issueType }}</span>
                     </div>
                   </td>
@@ -209,6 +210,7 @@ import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
 import { uniqueJiraKeysFromString } from '../utils/jiraKeys';
+import JiraParentBadge from '../components/JiraParentBadge.vue';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
