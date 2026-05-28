@@ -127,13 +127,17 @@ import { useRouter } from 'vue-router';
 import { useJiraStore } from '../stores/jiraStore';
 import { KANBAN_COLUMNS, groupIssuesByKanbanColumn, type KanbanColumn } from '../utils/jiraIssueStatus';
 import JiraParentBadge from '../components/JiraParentBadge.vue';
+import { isProgramIssueType } from '../utils/jiraEpicColors';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
 
 const displayColumns: KanbanColumn[] = [...KANBAN_COLUMNS];
 
-const groupedIssues = computed(() => groupIssuesByKanbanColumn(jiraStore.issues));
+const groupedIssues = computed(() => {
+  const filtered = jiraStore.issues.filter(issue => !isProgramIssueType(issue.issueType));
+  return groupIssuesByKanbanColumn(filtered);
+});
 
 function priorityIcon(priority: string) {
   if (priority === 'High' || priority === 'Highest') return 'keyboard_double_arrow_up';

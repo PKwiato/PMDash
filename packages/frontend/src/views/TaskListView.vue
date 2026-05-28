@@ -196,7 +196,7 @@
             </table>
           </div>
           <div class="px-md py-3 bg-surface-container-low border-t border-outline-variant flex items-center justify-between">
-            <span class="text-body-sm text-on-surface-variant">Showing {{ filteredAndSortedIssues.length }} of {{ jiraStore.issues.length }} tasks</span>
+            <span class="text-body-sm text-on-surface-variant">Showing {{ filteredAndSortedIssues.length }} of {{ onlyTasks.length }} tasks</span>
           </div>
         </div>
       </div>
@@ -211,6 +211,7 @@ import { useJiraStore } from '../stores/jiraStore';
 import { useNotesStore } from '../stores/notesStore';
 import { uniqueJiraKeysFromString } from '../utils/jiraKeys';
 import JiraParentBadge from '../components/JiraParentBadge.vue';
+import { isProgramIssueType } from '../utils/jiraEpicColors';
 
 const router = useRouter();
 const jiraStore = useJiraStore();
@@ -238,27 +239,29 @@ const showFilterMenu = ref(false);
 const sortField = ref('key');
 const sortOrder = ref('asc');
 
+const onlyTasks = computed(() => jiraStore.issues.filter(i => !isProgramIssueType(i.issueType)));
+
 // Options for filters
 const uniqueStatuses = computed(() => {
-  const statuses = new Set(jiraStore.issues.map(i => i.status));
+  const statuses = new Set(onlyTasks.value.map(i => i.status));
   return Array.from(statuses).sort();
 });
 
 const uniquePriorities = computed(() => {
-  const priorities = new Set(jiraStore.issues.map(i => i.priority));
+  const priorities = new Set(onlyTasks.value.map(i => i.priority));
   return Array.from(priorities).sort();
 });
 
 const uniqueAssignees = computed(() => {
   const assignees = new Set<string>();
-  jiraStore.issues.forEach(i => {
+  onlyTasks.value.forEach(i => {
     if (i.assignee) assignees.add(i.assignee);
   });
   return Array.from(assignees).sort();
 });
 
 const filteredAndSortedIssues = computed(() => {
-  let result = [...jiraStore.issues];
+  let result = [...onlyTasks.value];
 
   // Search
   if (searchQuery.value) {

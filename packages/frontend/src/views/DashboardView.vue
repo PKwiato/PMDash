@@ -29,7 +29,7 @@
         </div>
         <div>
           <div class="flex items-baseline gap-1.5">
-            <span class="text-2xl font-bold text-on-surface leading-none">{{ jiraStore.issues.length }}</span>
+            <span class="text-2xl font-bold text-on-surface leading-none">{{ onlyTasks.length }}</span>
             <span class="text-[9px] font-bold text-on-primary-container tracking-wider uppercase">Total Tasks</span>
           </div>
         </div>
@@ -213,7 +213,7 @@
           <div class="flex flex-wrap gap-x-12 gap-y-4">
             <div>
               <div class="text-[9px] opacity-60 uppercase font-bold tracking-widest mb-1">Issues in scope</div>
-              <div class="text-xl font-bold">{{ jiraStore.issues.length }}</div>
+              <div class="text-xl font-bold">{{ onlyTasks.length }}</div>
             </div>
             <div>
               <div class="text-[9px] opacity-60 uppercase font-bold tracking-widest mb-1">Sync Success</div>
@@ -245,6 +245,7 @@ import { useNotesStore } from '../stores/notesStore';
 import { metricBucketForIssue } from '../utils/jiraIssueStatus';
 import type { JiraIssueDto } from '../types/api';
 import JiraParentBadge from '../components/JiraParentBadge.vue';
+import { isProgramIssueType } from '../utils/jiraEpicColors';
 
 const jiraStore = useJiraStore();
 const notesStore = useNotesStore();
@@ -257,26 +258,28 @@ function statusChipClass(issue: JiraIssueDto) {
   return 'bg-surface-container-high text-on-surface-variant';
 }
 
+const onlyTasks = computed(() => jiraStore.issues.filter(i => !isProgramIssueType(i.issueType)));
+
 const inFlightCount = computed(
-  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'inFlight').length,
+  () => onlyTasks.value.filter(i => metricBucketForIssue(i.status) === 'inFlight').length,
 );
 const doneCount = computed(
-  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'done').length,
+  () => onlyTasks.value.filter(i => metricBucketForIssue(i.status) === 'done').length,
 );
 const blockedCount = computed(
-  () => jiraStore.issues.filter(i => metricBucketForIssue(i.status) === 'blocked').length,
+  () => onlyTasks.value.filter(i => metricBucketForIssue(i.status) === 'blocked').length,
 );
 
 const hasStoryPointEstimates = computed(() =>
-  jiraStore.issues.some(i => i.storyPoints != null && Number(i.storyPoints) > 0),
+  onlyTasks.value.some(i => i.storyPoints != null && Number(i.storyPoints) > 0),
 );
 
 const storyPointsTotal = computed(() =>
-  jiraStore.issues.reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
+  onlyTasks.value.reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
 );
 
 const storyPointsDone = computed(() =>
-  jiraStore.issues
+  onlyTasks.value
     .filter(i => metricBucketForIssue(i.status) === 'done')
     .reduce((sum, i) => sum + (i.storyPoints != null ? Number(i.storyPoints) : 0), 0),
 );
@@ -302,7 +305,7 @@ const sprintContextLine = computed(() => {
   return `Board: ${board}.`;
 });
 
-const recentIssues = computed(() => jiraStore.issues.slice(0, 10));
+const recentIssues = computed(() => onlyTasks.value.slice(0, 10));
 const recentNotes = computed(() => notesStore.notes.slice(0, 8));
 
 const formatDate = (dateStr: string) => {
