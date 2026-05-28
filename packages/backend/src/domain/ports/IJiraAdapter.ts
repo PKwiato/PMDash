@@ -60,6 +60,7 @@ export interface JiraIssue {
   linkedIssues?: JiraLinkedIssue[];
   subtasks?: JiraLinkedIssue[];
   storyPoints?: number | null;
+  originalStoryPoints?: number | null;
   created?: string;
   changelog?: JiraChangelogHistory[];
   statusDwellBusinessDays?: JiraStatusDwell[];

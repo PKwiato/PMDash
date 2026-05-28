@@ -90,6 +90,7 @@ export class JiraResponseMapper {
       linkedIssues,
       subtasks,
       storyPoints: fields.customfield_10004 ?? null,
+      originalStoryPoints: fields.customfield_14054 ?? null,
       statscoreTeam: this.extractStatscoreTeam(fields),
     };
 

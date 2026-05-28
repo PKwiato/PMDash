@@ -111,6 +111,7 @@ export interface JiraIssueDto {
   linkedIssues?: JiraLinkedIssueDto[];
   subtasks?: JiraLinkedIssueDto[];
   storyPoints?: number | null;
+  originalStoryPoints?: number | null;
   created?: string;
   changelog?: JiraChangelogHistoryDto[];
   statusDwellBusinessDays?: JiraStatusDwellDto[];

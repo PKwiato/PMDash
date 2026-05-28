@@ -13,7 +13,7 @@ import { JiraApiClient } from './JiraApiClient';
 import { JiraResponseMapper } from './JiraResponseMapper';
 
 const ISSUE_FIELDS_BASE =
-  'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,comment,issuelinks,subtasks,customfield_10004,created';
+  'summary,description,status,assignee,priority,parent,issuetype,customfield_10014,customfield_10013,comment,issuelinks,subtasks,customfield_10004,customfield_14054,created';
 
 async function mapWithConcurrency<T, R>(
   items: readonly T[],

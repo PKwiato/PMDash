@@ -272,6 +272,17 @@
                   >
                     {{ isProgramCompleted(program) ? 'Completed' : 'Active' }}
                   </span>
+                  <span
+                    v-if="getProgramStoryPoints(program) > 0"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container/20 text-secondary"
+                    :title="`Total Story Points: ${getProgramStoryPoints(program)}`"
+                  >
+                    <span class="material-symbols-outlined text-[12px] opacity-70">assessment</span>
+                    {{ getProgramStoryPoints(program) }} SP
+                    <span v-if="getProgramOriginalStoryPoints(program) > 0" class="opacity-60 font-normal">
+                      (orig: {{ getProgramOriginalStoryPoints(program) }})
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -318,22 +329,111 @@
 
       <!-- Tasks table -->
       <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-        <div class="px-md py-4 border-b border-outline-variant flex items-center justify-between gap-4">
+        <div class="px-md py-4 border-b border-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 class="text-lg font-bold text-on-surface">
             {{ selectedProgramKey ? `Tasks — ${selectedProgramTitle}` : 'All Tasks' }}
             <span class="text-sm font-normal text-on-surface-variant">({{ filteredTableRows.length }})</span>
           </h2>
+          <div class="relative flex-1 max-w-xs w-full">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+            <input
+              v-model="tableSearchQuery"
+              type="text"
+              placeholder="Filter tasks by summary or key…"
+              class="w-full pl-9 pr-8 py-1.5 border border-outline-variant rounded-lg text-xs focus:ring-2 focus:ring-secondary focus:border-secondary outline-none bg-surface-container-lowest text-on-surface font-semibold"
+            />
+            <button
+              v-if="tableSearchQuery"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+              @click="tableSearchQuery = ''"
+            >
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-left">
-            <thead class="bg-surface-container-low border-b border-outline-variant">
+            <thead class="bg-surface-container-low border-b border-outline-variant select-none">
               <tr>
-                <th class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Task</th>
-                <th class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Program</th>
-                <th class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Owner</th>
-                <th class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Updated</th>
-                <th class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant text-center">Status</th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors"
+                  @click="toggleTableSort('task')"
+                >
+                  <div class="flex items-center gap-1">
+                    Task
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'task', 'opacity-30': tableSortField !== 'task' }">
+                      {{ tableSortField === 'task' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors"
+                  @click="toggleTableSort('program')"
+                >
+                  <div class="flex items-center gap-1">
+                    Program
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'program', 'opacity-30': tableSortField !== 'program' }">
+                      {{ tableSortField === 'program' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors"
+                  @click="toggleTableSort('owner')"
+                >
+                  <div class="flex items-center gap-1">
+                    Owner
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'owner', 'opacity-30': tableSortField !== 'owner' }">
+                      {{ tableSortField === 'owner' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors text-center"
+                  @click="toggleTableSort('sp')"
+                >
+                  <div class="flex items-center justify-center gap-1">
+                    SP
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'sp', 'opacity-30': tableSortField !== 'sp' }">
+                      {{ tableSortField === 'sp' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors text-center"
+                  @click="toggleTableSort('osp')"
+                >
+                  <div class="flex items-center justify-center gap-1">
+                    OSP
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'osp', 'opacity-30': tableSortField !== 'osp' }">
+                      {{ tableSortField === 'osp' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors"
+                  @click="toggleTableSort('updated')"
+                >
+                  <div class="flex items-center gap-1">
+                    Updated
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'updated', 'opacity-30': tableSortField !== 'updated' }">
+                      {{ tableSortField === 'updated' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors text-center"
+                  @click="toggleTableSort('status')"
+                >
+                  <div class="flex items-center justify-center gap-1">
+                    Status
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'status', 'opacity-30': tableSortField !== 'status' }">
+                      {{ tableSortField === 'status' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant">
@@ -361,6 +461,24 @@
                   </div>
                   <span v-else class="text-sm text-on-surface-variant">Unassigned</span>
                 </td>
+                <td class="px-md py-3 text-center">
+                  <span
+                    v-if="row.issue.storyPoints != null"
+                    class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded bg-surface-container-high text-xs font-bold text-on-surface"
+                  >
+                    {{ row.issue.storyPoints }}
+                  </span>
+                  <span v-else class="text-xs text-on-surface-variant/50">—</span>
+                </td>
+                <td class="px-md py-3 text-center">
+                  <span
+                    v-if="row.issue.originalStoryPoints != null"
+                    class="inline-flex items-center justify-center min-w-[24px] h-[24px] px-1.5 rounded bg-secondary-container/20 text-xs font-bold text-secondary"
+                  >
+                    {{ row.issue.originalStoryPoints }}
+                  </span>
+                  <span v-else class="text-xs text-on-surface-variant/50">—</span>
+                </td>
                 <td class="px-md py-3 text-sm text-on-surface-variant whitespace-nowrap">
                   {{ formatProgramDate(row.issue.created) }}
                 </td>
@@ -371,7 +489,7 @@
                 </td>
               </tr>
               <tr v-if="filteredTableRows.length === 0">
-                <td colspan="5" class="px-md py-10 text-center text-on-surface-variant text-sm">
+                <td colspan="7" class="px-md py-10 text-center text-on-surface-variant text-sm">
                   No tasks match the current filters.
                 </td>
               </tr>
@@ -423,6 +541,10 @@ const issueTypeFilter = ref('');
 const progressFilter = ref<'' | 'has_tasks' | 'no_tasks' | 'blocked' | 'launch_ready'>('');
 const programLifecycleFilter = ref<ProgramLifecycleFilter>('active');
 const selectedTeams = ref<string[]>([]);
+
+const tableSearchQuery = ref('');
+const tableSortField = ref<'task' | 'program' | 'owner' | 'sp' | 'osp' | 'updated' | 'status'>('task');
+const tableSortOrder = ref<'asc' | 'desc'>('asc');
 
 const lifecycleOptions: { value: ProgramLifecycleFilter; label: string; countKey: 'all' | 'active' | 'completed' }[] = [
   { value: 'active', label: 'Active', countKey: 'active' },
@@ -620,8 +742,50 @@ const filteredTableRows = computed(() => {
       issueMatchesSearch(r.issue.summary, r.issue.key, r.programRef?.summary ?? null, q),
     );
   }
+  if (tableSearchQuery.value.trim()) {
+    const q = tableSearchQuery.value.toLowerCase().trim();
+    result = result.filter(r =>
+      r.issue.summary.toLowerCase().includes(q) ||
+      r.issue.key.toLowerCase().includes(q)
+    );
+  }
 
-  return result.sort((a, b) => a.issue.summary.localeCompare(b.issue.summary, 'pl'));
+  return [...result].sort((a, b) => {
+    let valA: any = '';
+    let valB: any = '';
+
+    if (tableSortField.value === 'task') {
+      valA = a.issue.summary;
+      valB = b.issue.summary;
+    } else if (tableSortField.value === 'program') {
+      valA = a.programRef?.summary ?? '';
+      valB = b.programRef?.summary ?? '';
+    } else if (tableSortField.value === 'owner') {
+      valA = a.issue.assignee ?? '';
+      valB = b.issue.assignee ?? '';
+    } else if (tableSortField.value === 'sp') {
+      valA = a.issue.storyPoints ?? -1;
+      valB = b.issue.storyPoints ?? -1;
+    } else if (tableSortField.value === 'osp') {
+      valA = a.issue.originalStoryPoints ?? -1;
+      valB = b.issue.originalStoryPoints ?? -1;
+    } else if (tableSortField.value === 'updated') {
+      valA = a.issue.created ?? '';
+      valB = b.issue.created ?? '';
+    } else if (tableSortField.value === 'status') {
+      valA = a.statusLabel;
+      valB = b.statusLabel;
+    }
+
+    let comparison = 0;
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      comparison = valA.localeCompare(valB, 'pl');
+    } else {
+      comparison = valA < valB ? -1 : (valA > valB ? 1 : 0);
+    }
+
+    return tableSortOrder.value === 'asc' ? comparison : -comparison;
+  });
 });
 
 const hasActiveFilters = computed(() => activeFilterCount.value > 0);
@@ -633,6 +797,7 @@ const activeFilterCount = computed(() => {
   if (statusFilter.value || assigneeFilter.value || priorityFilter.value) n += 1;
   if (issueTypeFilter.value || progressFilter.value) n += 1;
   if (programLifecycleFilter.value !== 'active') n += 1;
+  if (tableSearchQuery.value.trim()) n += 1;
   const defaultTeams = defaultTeamFilterForBoard(jiraStore.boardName, uniqueStatscoreTeams.value);
   const teamChanged =
     selectedTeams.value.length !== defaultTeams.length ||
@@ -645,6 +810,7 @@ const activeFilterCount = computed(() => {
 
 function clearFilters() {
   searchQuery.value = '';
+  tableSearchQuery.value = '';
   selectedProgramKey.value = null;
   statusFilter.value = '';
   assigneeFilter.value = '';
@@ -670,6 +836,23 @@ function statusBadgeClass(label: ProgramTaskStatusLabel): string {
 
 function toggleProgramFilter(key: string) {
   selectedProgramKey.value = selectedProgramKey.value === key ? null : key;
+}
+
+function toggleTableSort(field: 'task' | 'program' | 'owner' | 'sp' | 'osp' | 'updated' | 'status') {
+  if (tableSortField.value === field) {
+    tableSortOrder.value = tableSortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    tableSortField.value = field;
+    tableSortOrder.value = 'asc';
+  }
+}
+
+function getProgramStoryPoints(program: ProgramSummary): number {
+  return program.tasks.reduce((sum, task) => sum + (task.storyPoints ?? 0), 0);
+}
+
+function getProgramOriginalStoryPoints(program: ProgramSummary): number {
+  return program.tasks.reduce((sum, task) => sum + (task.originalStoryPoints ?? 0), 0);
 }
 
 async function refresh() {
