@@ -38,6 +38,8 @@ export class JiraApiAdapter implements IJiraAdapter {
   private issueFieldsCache: string | null = null;
   private statscoreTeamFieldResolved = false;
   private statscoreTeamFieldId: string | null = null;
+  private sprintFieldResolved = false;
+  private sprintFieldId: string | null = null;
 
   constructor(private readonly client: JiraApiClient) {}
 
@@ -58,10 +60,36 @@ export class JiraApiAdapter implements IJiraAdapter {
     return this.statscoreTeamFieldId;
   }
 
+  private async resolveSprintFieldId(): Promise<string | null> {
+    if (this.sprintFieldResolved) return this.sprintFieldId;
+    this.sprintFieldResolved = true;
+    try {
+      const fields = await this.client.get<Array<{ id?: string; name?: string; schema?: { custom?: string } }>>('/field');
+      const match = fields.find(
+        f =>
+          typeof f.name === 'string' &&
+          f.name.trim().toLowerCase() === 'sprint' &&
+          f.schema?.custom === 'com.pyxis.greenhopper.jira:gh-sprint',
+      );
+      this.sprintFieldId = typeof match?.id === 'string' ? match.id : 'customfield_10007';
+      JiraResponseMapper.setSprintFieldId(this.sprintFieldId);
+    } catch {
+      this.sprintFieldId = 'customfield_10007';
+      JiraResponseMapper.setSprintFieldId('customfield_10007');
+    }
+    return this.sprintFieldId;
+  }
+
   private async issueFields(): Promise<string> {
     if (this.issueFieldsCache) return this.issueFieldsCache;
-    const teamId = await this.resolveStatscoreTeamFieldId();
-    this.issueFieldsCache = teamId ? `${ISSUE_FIELDS_BASE},${teamId}` : ISSUE_FIELDS_BASE;
+    const [teamId, sprintId] = await Promise.all([
+      this.resolveStatscoreTeamFieldId(),
+      this.resolveSprintFieldId(),
+    ]);
+    let fields = ISSUE_FIELDS_BASE;
+    if (teamId && !fields.includes(teamId)) fields += `,${teamId}`;
+    if (sprintId && !fields.includes(sprintId)) fields += `,${sprintId}`;
+    this.issueFieldsCache = fields;
     return this.issueFieldsCache;
   }
 

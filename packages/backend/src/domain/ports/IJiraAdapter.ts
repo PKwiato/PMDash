@@ -42,6 +42,12 @@ export interface JiraStatusDwell {
   businessDays: number;
 }
 
+export interface JiraIssueSprint {
+  id: number;
+  name: string;
+  state: string;
+}
+
 export interface JiraIssue {
   id: string;
   key: string;
@@ -61,6 +67,7 @@ export interface JiraIssue {
   subtasks?: JiraLinkedIssue[];
   storyPoints?: number | null;
   originalStoryPoints?: number | null;
+  sprints?: JiraIssueSprint[] | null;
   created?: string;
   changelog?: JiraChangelogHistory[];
   statusDwellBusinessDays?: JiraStatusDwell[];

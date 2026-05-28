@@ -7,6 +7,7 @@ import {
 
 export class JiraResponseMapper {
   private static statscoreTeamFieldId: string | null = null;
+  private static sprintFieldId: string | null = 'customfield_10007';
 
   static setStatscoreTeamFieldId(fieldId: string | null): void {
     this.statscoreTeamFieldId = fieldId;
@@ -14,6 +15,14 @@ export class JiraResponseMapper {
 
   static getStatscoreTeamFieldId(): string | null {
     return this.statscoreTeamFieldId;
+  }
+
+  static setSprintFieldId(fieldId: string | null): void {
+    this.sprintFieldId = fieldId;
+  }
+
+  static getSprintFieldId(): string | null {
+    return this.sprintFieldId;
   }
 
   static toIssue(raw: {
@@ -91,6 +100,7 @@ export class JiraResponseMapper {
       subtasks,
       storyPoints: fields.customfield_10004 ?? null,
       originalStoryPoints: fields.customfield_14054 ?? null,
+      sprints: this.extractSprints(fields),
       statscoreTeam: this.extractStatscoreTeam(fields),
     };
 
@@ -126,6 +136,19 @@ export class JiraResponseMapper {
 
   private static extractEpicColor(fields: Record<string, unknown>): string | null {
     return this.parseColorField(fields.customfield_10013);
+  }
+
+  private static extractSprints(
+    fields: Record<string, unknown>,
+  ): Array<{ id: number; name: string; state: string }> | null {
+    const fieldId = this.sprintFieldId || 'customfield_10007';
+    const value = fields[fieldId];
+    if (!Array.isArray(value)) return null;
+    return value.map((s: any) => ({
+      id: Number(s.id),
+      name: String(s.name ?? ''),
+      state: String(s.state ?? ''),
+    }));
   }
 
   private static extractStatscoreTeam(fields: Record<string, unknown>): string | null {

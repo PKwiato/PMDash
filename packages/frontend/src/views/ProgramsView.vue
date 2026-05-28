@@ -414,6 +414,17 @@
                 </th>
                 <th
                   class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors"
+                  @click="toggleTableSort('sprint')"
+                >
+                  <div class="flex items-center gap-1">
+                    Sprint
+                    <span class="material-symbols-outlined text-[14px]" :class="{ 'opacity-100': tableSortField === 'sprint', 'opacity-30': tableSortField !== 'sprint' }">
+                      {{ tableSortField === 'sprint' && tableSortOrder === 'desc' ? 'arrow_downward' : 'arrow_upward' }}
+                    </span>
+                  </div>
+                </th>
+                <th
+                  class="px-md py-3 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant cursor-pointer hover:text-on-surface hover:bg-surface-container transition-colors"
                   @click="toggleTableSort('updated')"
                 >
                   <div class="flex items-center gap-1">
@@ -479,6 +490,21 @@
                   </span>
                   <span v-else class="text-xs text-on-surface-variant/50">—</span>
                 </td>
+                <td class="px-md py-3">
+                  <div class="flex flex-wrap gap-1">
+                    <template v-if="row.issue.sprints && row.issue.sprints.length > 0">
+                      <span
+                        v-for="sprint in row.issue.sprints"
+                        :key="sprint.id"
+                        class="px-1.5 py-0.5 rounded bg-surface-container-high text-[11px] text-on-surface-variant border border-outline-variant whitespace-nowrap"
+                        :title="sprint.state"
+                      >
+                        {{ sprint.name }}
+                      </span>
+                    </template>
+                    <span v-else class="text-xs text-on-surface-variant/50">—</span>
+                  </div>
+                </td>
                 <td class="px-md py-3 text-sm text-on-surface-variant whitespace-nowrap">
                   {{ formatProgramDate(row.issue.created) }}
                 </td>
@@ -543,7 +569,7 @@ const programLifecycleFilter = ref<ProgramLifecycleFilter>('active');
 const selectedTeams = ref<string[]>([]);
 
 const tableSearchQuery = ref('');
-const tableSortField = ref<'task' | 'program' | 'owner' | 'sp' | 'osp' | 'updated' | 'status'>('task');
+const tableSortField = ref<'task' | 'program' | 'owner' | 'sp' | 'osp' | 'sprint' | 'updated' | 'status'>('task');
 const tableSortOrder = ref<'asc' | 'desc'>('asc');
 
 const lifecycleOptions: { value: ProgramLifecycleFilter; label: string; countKey: 'all' | 'active' | 'completed' }[] = [
@@ -769,6 +795,9 @@ const filteredTableRows = computed(() => {
     } else if (tableSortField.value === 'osp') {
       valA = a.issue.originalStoryPoints ?? -1;
       valB = b.issue.originalStoryPoints ?? -1;
+    } else if (tableSortField.value === 'sprint') {
+      valA = a.issue.sprints?.[0]?.name ?? '';
+      valB = b.issue.sprints?.[0]?.name ?? '';
     } else if (tableSortField.value === 'updated') {
       valA = a.issue.created ?? '';
       valB = b.issue.created ?? '';
@@ -838,7 +867,7 @@ function toggleProgramFilter(key: string) {
   selectedProgramKey.value = selectedProgramKey.value === key ? null : key;
 }
 
-function toggleTableSort(field: 'task' | 'program' | 'owner' | 'sp' | 'osp' | 'updated' | 'status') {
+function toggleTableSort(field: 'task' | 'program' | 'owner' | 'sp' | 'osp' | 'sprint' | 'updated' | 'status') {
   if (tableSortField.value === field) {
     tableSortOrder.value = tableSortOrder.value === 'asc' ? 'desc' : 'asc';
   } else {

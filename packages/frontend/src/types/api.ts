@@ -94,6 +94,12 @@ export interface JiraStatusDwellDto {
   businessDays: number;
 }
 
+export interface JiraIssueSprint {
+  id: number;
+  name: string;
+  state: string;
+}
+
 export interface JiraIssueDto {
   id: string;
   key: string;
@@ -112,6 +118,7 @@ export interface JiraIssueDto {
   subtasks?: JiraLinkedIssueDto[];
   storyPoints?: number | null;
   originalStoryPoints?: number | null;
+  sprints?: JiraIssueSprint[] | null;
   created?: string;
   changelog?: JiraChangelogHistoryDto[];
   statusDwellBusinessDays?: JiraStatusDwellDto[];
