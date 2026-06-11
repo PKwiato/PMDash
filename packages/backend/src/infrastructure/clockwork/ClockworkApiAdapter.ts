@@ -10,6 +10,7 @@ interface ClockworkAuthor {
 }
 
 interface ClockworkIssue {
+  id?: string;
   key?: string;
 }
 
@@ -19,14 +20,17 @@ interface ClockworkWorklogResponse {
   started: string;
   author?: ClockworkAuthor;
   issue?: ClockworkIssue;
+  issueId?: string | number;
   comment?: string;
 }
 
 export function mapClockworkWorklogResponse(worklog: ClockworkWorklogResponse): ClockworkWorklog {
   const startedDate = worklog.started.split('T')[0];
+  const issueId = worklog.issue?.id ?? worklog.issueId;
   return {
     id: Number(worklog.id),
     issueKey: worklog.issue?.key ?? '',
+    issueId: issueId != null ? String(issueId) : undefined,
     userAccountId: worklog.author?.accountId ?? '',
     userName: worklog.author?.displayName ?? '',
     date: startedDate,

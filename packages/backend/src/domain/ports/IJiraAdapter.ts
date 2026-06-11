@@ -102,6 +102,8 @@ export interface JiraBoardProject {
 export interface ClockworkWorklog {
   id: number;
   issueKey: string;
+  /** Jira numeric issue id when Clockwork returns issueId without expanded issue.key */
+  issueId?: string;
   userAccountId: string;
   userName: string;
   date: string;
@@ -130,6 +132,8 @@ export interface IJiraAdapter {
   listBoardSprints(boardId: number): Promise<JiraSprint[]>;
   getIssue(issueKey: string, options?: { includeChangelog?: boolean }): Promise<JiraIssue>;
   listIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }): Promise<JiraIssue[]>;
+  /** Resolve Jira issue keys from numeric issue ids (Clockwork worklogs without expand=issues). */
+  resolveIssueKeysByIds(issueIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
   getBoardProgress(projectKey: string): Promise<JiraBoardProgress>;
   listClockworkWorklogs(startingAt: string, endingAt: string, userAccountIds?: string[] | string, projectKeys?: string[]): Promise<ClockworkWorklog[]>;
   listBoardUsers(boardId: number): Promise<JiraUser[]>;

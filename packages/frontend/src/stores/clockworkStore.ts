@@ -14,10 +14,17 @@ export interface WorklogInconsistency {
   severity: 'low' | 'medium' | 'high';
 }
 
+export interface IssueWorklogBreakdown {
+  issueKey: string;
+  seconds: number;
+  logCount: number;
+}
+
 export interface UserAnalysis {
   user: JiraUser;
   totalSeconds: number;
   inconsistencies: WorklogInconsistency[];
+  issueBreakdown: IssueWorklogBreakdown[];
 }
 
 export const useClockworkStore = defineStore('clockwork', {

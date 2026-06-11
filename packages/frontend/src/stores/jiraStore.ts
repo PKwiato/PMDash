@@ -172,21 +172,22 @@ export const useJiraStore = defineStore('jira', () => {
         includeChangelog: options?.includeChangelog === true,
       });
 
-      const newIssues = response.data;
-      const issueMap = new Map(issues.value.map(i => [i.key, i]));
-      const merged = newIssues.map(ni => {
-        const prev = issueMap.get(ni.key);
-        const out = mergeJiraIssueDto(prev, ni);
-        issueMap.set(ni.key, out);
-        return out;
-      });
-      issues.value = Array.from(issueMap.values());
-
-      return merged;
+      mergeIssuesIntoStore(response.data);
+      return response.data;
     } catch (err: unknown) {
       console.error('Error fetching bulk Jira issues:', err);
       return [];
     }
+  }
+
+  function mergeIssuesIntoStore(newIssues: JiraIssueDto[]) {
+    if (newIssues.length === 0) return;
+    const issueMap = new Map(issues.value.map(i => [i.key, i]));
+    for (const ni of newIssues) {
+      const prev = issueMap.get(ni.key);
+      issueMap.set(ni.key, mergeJiraIssueDto(prev, ni));
+    }
+    issues.value = Array.from(issueMap.values());
   }
 
   async function fetchIssueByKey(key: string, options?: { includeChangelog?: boolean }) {

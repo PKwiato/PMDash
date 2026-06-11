@@ -66,6 +66,10 @@
           <span class="material-symbols-outlined">folder_special</span>
           Programs
         </router-link>
+        <router-link to="/team-summary" class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all rounded-lg" active-class="text-secondary bg-secondary-container/20 border-r-4 border-secondary">
+          <span class="material-symbols-outlined">summarize</span>
+          2 tygodnie
+        </router-link>
         <router-link to="/notes" class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all rounded-lg" active-class="text-secondary bg-secondary-container/20 border-r-4 border-secondary">
           <span class="material-symbols-outlined">edit_note</span>
           Private Notes

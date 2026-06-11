@@ -28,6 +28,20 @@ test('mapClockworkWorklogResponse maps author and issue fields', () => {
   assert.equal(mapped.started, '2021-02-08T14:23:35Z');
 });
 
+test('mapClockworkWorklogResponse maps top-level issueId when issue key is absent', () => {
+  const mapped = mapClockworkWorklogResponse({
+    id: '10294',
+    timeSpentSeconds: 3600,
+    started: '2023-04-03T02:15:00+02:00',
+    author: { accountId: 'user-1' },
+    issueId: '17843',
+  });
+
+  assert.equal(mapped.issueKey, '');
+  assert.equal(mapped.issueId, '17843');
+  assert.equal(mapped.timeSpentSeconds, 3600);
+});
+
 test('ClockworkApiAdapter paginates worklogs until a short page is returned', async () => {
   const calls: Array<Record<string, string | string[]>> = [];
   const client = {

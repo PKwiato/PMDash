@@ -8,10 +8,52 @@ export interface WorklogInconsistency {
   severity: 'low' | 'medium' | 'high';
 }
 
+export interface IssueWorklogBreakdown {
+  issueKey: string;
+  seconds: number;
+  logCount: number;
+}
+
 export interface UserAnalysis {
   user: JiraUser;
   totalSeconds: number;
   inconsistencies: WorklogInconsistency[];
+  issueBreakdown: IssueWorklogBreakdown[];
+}
+
+export async function hydrateClockworkIssueKeys(
+  worklogs: readonly ClockworkWorklog[],
+  resolveKeys: (issueIds: readonly string[]) => Promise<ReadonlyMap<string, string>>,
+): Promise<ClockworkWorklog[]> {
+  const idsNeedingKeys = [
+    ...new Set(
+      worklogs
+        .filter(w => !w.issueKey.trim() && w.issueId)
+        .map(w => w.issueId!.trim()),
+    ),
+  ];
+  if (idsNeedingKeys.length === 0) return [...worklogs];
+
+  const idToKey = await resolveKeys(idsNeedingKeys);
+  return worklogs.map(w => {
+    if (w.issueKey.trim() || !w.issueId) return w;
+    const key = idToKey.get(w.issueId) ?? '';
+    return key ? { ...w, issueKey: key } : w;
+  });
+}
+
+function buildIssueBreakdown(logs: ClockworkWorklog[]): IssueWorklogBreakdown[] {
+  const byKey = new Map<string, IssueWorklogBreakdown>();
+  for (const log of logs) {
+    const key = log.issueKey.trim();
+    if (!key) continue;
+    const normalized = key.toUpperCase();
+    const existing = byKey.get(normalized) ?? { issueKey: key, seconds: 0, logCount: 0 };
+    existing.seconds += log.timeSpentSeconds;
+    existing.logCount += 1;
+    byKey.set(normalized, existing);
+  }
+  return [...byKey.values()].sort((a, b) => b.seconds - a.seconds);
 }
 
 export class WorklogAnalysisService {
@@ -25,7 +67,11 @@ export class WorklogAnalysisService {
     if (users.length === 0) return [];
 
     const userAccountIds = new Set(users.map(user => user.accountId));
-    const allWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo);
+    const rawWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo);
+    const allWorklogs = await hydrateClockworkIssueKeys(
+      rawWorklogs,
+      ids => this.jiraAdapter.resolveIssueKeysByIds(ids),
+    );
 
     const worklogsByUser: Record<string, ClockworkWorklog[]> = {};
     for (const user of users) {
@@ -40,7 +86,7 @@ export class WorklogAnalysisService {
       const userLogs = worklogsByUser[user.accountId] || [];
       const userInconsistencies: WorklogInconsistency[] = [];
 
-      // Calculate total seconds
+      const issueBreakdown = buildIssueBreakdown(userLogs);
       const totalSeconds = userLogs.reduce((sum, w) => sum + w.timeSpentSeconds, 0);
 
       // Group by date for daily analysis
@@ -105,6 +151,7 @@ export class WorklogAnalysisService {
         user,
         totalSeconds,
         inconsistencies: userInconsistencies,
+        issueBreakdown,
       });
     }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { WorklogAnalysisService } from './WorklogAnalysisService';
+import { WorklogAnalysisService, hydrateClockworkIssueKeys } from './WorklogAnalysisService';
 import type { IClockworkAdapter } from '../../domain/ports/IClockworkAdapter';
 import type { ClockworkWorklog, IJiraAdapter, JiraUser } from '../../domain/ports/IJiraAdapter';
 
@@ -55,6 +55,7 @@ test('WorklogAnalysisService keeps only board users and sums their Clockwork hou
       throw new Error('not used');
     },
     listIssuesByKeys: async () => [],
+    resolveIssueKeysByIds: async () => new Map(),
     getBoardProgress: async () => ({ total: 0, byStatus: {} }),
     listClockworkWorklogs: async () => [] as ClockworkWorklog[],
     listBoardUsers: async () => boardUsers,
@@ -75,9 +76,81 @@ test('WorklogAnalysisService keeps only board users and sums their Clockwork hou
   assert.ok(alice);
   assert.equal(alice.totalSeconds, 9 * 3600);
   assert.equal(alice.inconsistencies.length, 0);
+  assert.equal(alice.issueBreakdown.length, 2);
+  assert.equal(alice.issueBreakdown[0]?.issueKey, 'SSP-1');
+  assert.equal(alice.issueBreakdown[0]?.seconds, 8 * 3600);
+  assert.equal(alice.issueBreakdown[0]?.logCount, 1);
 
   assert.ok(bob);
   assert.equal(bob.totalSeconds, 0);
   assert.equal(bob.inconsistencies.length, 1);
   assert.equal(bob.inconsistencies[0]?.type, 'missing_hours');
+});
+
+test('hydrateClockworkIssueKeys resolves issue keys from Jira issue ids', async () => {
+  const worklogs: ClockworkWorklog[] = [
+    {
+      id: 1,
+      issueKey: '',
+      issueId: '305054',
+      userAccountId: 'user-1',
+      userName: 'Alice',
+      date: '2026-06-07',
+      timeSpentSeconds: 7200,
+      description: '',
+    },
+  ];
+
+  const hydrated = await hydrateClockworkIssueKeys(worklogs, async ids => {
+    assert.deepEqual(ids, ['305054']);
+    return new Map([['305054', 'STAT-164345']]);
+  });
+
+  assert.equal(hydrated[0]?.issueKey, 'STAT-164345');
+});
+
+test('WorklogAnalysisService hydrates Clockwork issue ids before building breakdown', async () => {
+  const worklogsWithIds: ClockworkWorklog[] = [
+    {
+      id: 1,
+      issueKey: '',
+      issueId: '305054',
+      userAccountId: 'user-1',
+      userName: 'Alice Example',
+      date: '2026-06-07',
+      timeSpentSeconds: 7200,
+      description: '',
+    },
+  ];
+
+  const jiraAdapter: IJiraAdapter = {
+    listBoards: async () => [],
+    listBoardProjects: async () => [],
+    listBoardEpics: async () => [],
+    listBoardPrograms: async () => [],
+    listProgramsOverview: async () => [],
+    listBoardIssues: async () => [],
+    listBoardSprints: async () => [],
+    getIssue: async () => {
+      throw new Error('not used');
+    },
+    listIssuesByKeys: async () => [],
+    resolveIssueKeysByIds: async () => new Map([['305054', 'STAT-164345']]),
+    getBoardProgress: async () => ({ total: 0, byStatus: {} }),
+    listClockworkWorklogs: async () => [],
+    listBoardUsers: async () => boardUsers,
+  };
+
+  const clockworkAdapter: IClockworkAdapter = {
+    listWorklogs: async () => worklogsWithIds,
+  };
+
+  const service = new WorklogAnalysisService(jiraAdapter, clockworkAdapter);
+  const analysis = await service.analyzeBoard(214, '2026-06-07', '2026-06-07');
+  const alice = analysis.find(item => item.user.accountId === 'user-1');
+
+  assert.ok(alice);
+  assert.equal(alice.totalSeconds, 7200);
+  assert.equal(alice.issueBreakdown.length, 1);
+  assert.equal(alice.issueBreakdown[0]?.issueKey, 'STAT-164345');
 });
