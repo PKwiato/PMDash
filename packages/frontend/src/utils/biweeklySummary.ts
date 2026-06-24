@@ -1,7 +1,8 @@
 import type { JiraChangelogHistoryDto, JiraIssueDto } from '../types/api';
+import { defaultTeamFilterForBoard } from './jiraTeamFilter';
 import type { IssueWorklogBreakdown, UserAnalysis } from '../stores/clockworkStore';
 import { metricBucketForIssue } from './jiraIssueStatus';
-import { buildProgramsFromIssues, taskProgramKey } from './jiraPrograms';
+import { buildProgramsFromIssues, collectStatscoreTeams, taskProgramKey } from './jiraPrograms';
 import { teamMatchesSelection } from './jiraTeamFilter';
 import { isProgramIssueType } from './jiraEpicColors';
 
@@ -106,6 +107,14 @@ export function formatPeriodDate(iso: string): string {
   const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+export function teamFilterFromLoadedIssues(
+  boardName: string,
+  issues: readonly JiraIssueDto[],
+): string[] {
+  const teams = collectStatscoreTeams(buildProgramsFromIssues(issues));
+  return defaultTeamFilterForBoard(boardName, teams);
 }
 
 export interface BiweeklyDiagnostics {

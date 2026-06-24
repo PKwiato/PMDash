@@ -28,10 +28,10 @@
         <button
           type="button"
           class="flex items-center gap-2 px-4 py-2 bg-secondary text-on-secondary rounded-lg text-body-sm font-bold hover:bg-secondary-fixed transition-colors disabled:opacity-50"
-          :disabled="loading"
+          :disabled="loading || changelogLoading"
           @click="refresh"
         >
-          <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': loading }">sync</span>
+          <span class="material-symbols-outlined text-[18px]" :class="{ 'animate-spin': loading || changelogLoading }">sync</span>
           Odśwież
         </button>
       </div>
@@ -44,25 +44,28 @@
       Ustaw domyślny board Jiry w Settings, aby zobaczyć podsumowanie zespołu.
     </div>
 
-    <div v-if="loading && !dataReady" class="py-20 text-center text-on-surface-variant">
+    <div v-if="loading && !workloadReady" class="py-20 text-center text-on-surface-variant">
       <span class="material-symbols-outlined animate-spin text-4xl">sync</span>
       <p class="mt-3 font-label-md">Ładowanie worklogów i danych Jiry…</p>
     </div>
 
-    <template v-if="dataReady">
+    <template v-if="workloadReady">
       <!-- KPI -->
       <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-md mb-lg">
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
           <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Dowiezione</p>
-          <span class="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{{ kpis.deliveredCount }}</span>
+          <span v-if="changelogLoading" class="text-3xl font-bold text-on-surface-variant">…</span>
+          <span v-else class="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{{ kpis.deliveredCount }}</span>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
           <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">SP dowiezione</p>
-          <span class="text-3xl font-bold text-on-surface">{{ kpis.storyPointsDelivered || '—' }}</span>
+          <span v-if="changelogLoading" class="text-3xl font-bold text-on-surface-variant">…</span>
+          <span v-else class="text-3xl font-bold text-on-surface">{{ kpis.storyPointsDelivered || '—' }}</span>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
           <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Rozpoczęte</p>
-          <span class="text-3xl font-bold text-on-surface">{{ kpis.startedCount }}</span>
+          <span v-if="changelogLoading" class="text-3xl font-bold text-on-surface-variant">…</span>
+          <span v-else class="text-3xl font-bold text-on-surface">{{ kpis.startedCount }}</span>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
           <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">W toku</p>
@@ -70,7 +73,8 @@
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
           <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Powroty</p>
-          <span class="text-3xl font-bold text-amber-600 dark:text-amber-400">{{ kpis.returnsCount }}</span>
+          <span v-if="changelogLoading" class="text-3xl font-bold text-on-surface-variant">…</span>
+          <span v-else class="text-3xl font-bold text-amber-600 dark:text-amber-400">{{ kpis.returnsCount }}</span>
         </div>
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm">
           <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Godziny</p>
@@ -89,10 +93,17 @@
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-lg mb-lg">
         <!-- Delivered -->
         <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-          <div class="px-lg py-md border-b border-outline-variant flex items-center justify-between">
-            <h2 class="text-lg font-bold text-on-surface">Dowiezione ({{ delivered.length }})</h2>
+          <div class="px-lg py-md border-b border-outline-variant flex items-center justify-between gap-2">
+            <h2 class="text-lg font-bold text-on-surface">Dowiezione ({{ changelogLoading ? '…' : delivered.length }})</h2>
+            <span v-if="changelogLoading" class="text-xs text-on-surface-variant flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px] animate-spin">sync</span>
+              changelog
+            </span>
           </div>
-          <div v-if="delivered.length === 0" class="p-lg text-sm text-on-surface-variant italic">
+          <div v-if="changelogLoading" class="p-lg text-sm text-on-surface-variant italic">
+            Ładowanie historii statusów…
+          </div>
+          <div v-else-if="delivered.length === 0" class="p-lg text-sm text-on-surface-variant italic">
             Brak przejść do Done w wybranym okresie (wymaga changelogu).
           </div>
           <div v-else class="overflow-x-auto max-h-[480px] overflow-y-auto">
@@ -129,10 +140,17 @@
 
         <!-- At risk -->
         <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-          <div class="px-lg py-md border-b border-outline-variant">
-            <h2 class="text-lg font-bold text-on-surface">W toku / ryzyko ({{ atRisk.length }})</h2>
+          <div class="px-lg py-md border-b border-outline-variant flex items-center justify-between gap-2">
+            <h2 class="text-lg font-bold text-on-surface">W toku / ryzyko ({{ changelogLoading ? '…' : atRisk.length }})</h2>
+            <span v-if="changelogLoading" class="text-xs text-on-surface-variant flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px] animate-spin">sync</span>
+              changelog
+            </span>
           </div>
-          <div v-if="atRisk.length === 0" class="p-lg text-sm text-on-surface-variant italic">
+          <div v-if="changelogLoading" class="p-lg text-sm text-on-surface-variant italic">
+            Ładowanie historii statusów…
+          </div>
+          <div v-else-if="atRisk.length === 0" class="p-lg text-sm text-on-surface-variant italic">
             Brak tasków z blokadą, powrotami lub długą stagnacją.
           </div>
           <div v-else class="overflow-x-auto max-h-[480px] overflow-y-auto">
@@ -304,8 +322,11 @@
         <p v-if="clockworkStore.error" class="mt-2 pl-7 text-error font-medium">
           Clockwork: {{ clockworkStore.error }}
         </p>
-        <p v-else-if="!dataReady && loading" class="mt-2 pl-7 text-on-surface-variant">
+        <p v-else-if="!workloadReady && loading" class="mt-2 pl-7 text-on-surface-variant">
           Odświeżanie danych…
+        </p>
+        <p v-else-if="changelogLoading" class="mt-2 pl-7 text-on-surface-variant">
+          Worklogi gotowe — ładuję changelog dla sekcji Dowiezione / Ryzyko…
         </p>
       <p v-else-if="diagnostics.clockworkKeys === 0 && diagnostics.totalClockworkHours === 0" class="mt-2 pl-7 text-amber-600 dark:text-amber-400">
         Brak worklogów członków boardu w tym okresie — sprawdź daty lub filtr użytkowników Jiry.
@@ -332,8 +353,6 @@
 import { ref, computed, onMounted } from 'vue';
 import { useJiraStore } from '../stores/jiraStore';
 import { useClockworkStore } from '../stores/clockworkStore';
-import { defaultTeamFilterForBoard } from '../utils/jiraTeamFilter';
-import { collectStatscoreTeams, buildProgramsFromIssues } from '../utils/jiraPrograms';
 import {
   defaultBiweeklyRange,
   formatPeriodDate,
@@ -347,6 +366,7 @@ import {
   computeBiweeklyDiagnostics,
   buildPersonWorkloads,
   totalTeamWorklogSeconds,
+  teamFilterFromLoadedIssues,
   type CompletedTaskRow,
   type AtRiskTaskRow,
 } from '../utils/biweeklySummary';
@@ -358,15 +378,16 @@ const range = defaultBiweeklyRange();
 const dateFrom = ref(range.from);
 const dateTo = ref(range.to);
 const loading = ref(false);
-const dataReady = ref(false);
+const workloadReady = ref(false);
+const changelogReady = ref(false);
+const changelogLoading = ref(false);
 const loadAttempted = ref(false);
 const expandedPeople = ref(new Set<string>());
 
 const teamLabel = computed(() => jiraStore.boardName || '—');
-const selectedTeams = computed(() => {
-  const teams = collectStatscoreTeams(buildProgramsFromIssues(jiraStore.issues));
-  return defaultTeamFilterForBoard(jiraStore.boardName, teams);
-});
+const selectedTeams = computed(() =>
+  teamFilterFromLoadedIssues(jiraStore.boardName, jiraStore.issues),
+);
 
 const activeTeamTasks = computed(() =>
   activeTeamTasksFromClockwork(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
@@ -378,13 +399,15 @@ const diagnostics = computed(() =>
   computeBiweeklyDiagnostics(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
 );
 
-const delivered = computed<CompletedTaskRow[]>(() =>
-  completedTasksInPeriod(activeTeamTasks.value, jiraStore.issues, dateFrom.value, dateTo.value),
-);
+const delivered = computed<CompletedTaskRow[]>(() => {
+  if (!changelogReady.value) return [];
+  return completedTasksInPeriod(activeTeamTasks.value, jiraStore.issues, dateFrom.value, dateTo.value);
+});
 
-const atRisk = computed<AtRiskTaskRow[]>(() =>
-  atRiskTasks(activeTeamTasks.value, jiraStore.issues, dateFrom.value, dateTo.value),
-);
+const atRisk = computed<AtRiskTaskRow[]>(() => {
+  if (!changelogReady.value) return [];
+  return atRiskTasks(activeTeamTasks.value, jiraStore.issues, dateFrom.value, dateTo.value);
+});
 
 const kpis = computed(() =>
   computeBiweeklyKpis(activeTeamTasks.value, delivered.value, atRisk.value, dateFrom.value, dateTo.value),
@@ -414,52 +437,81 @@ function riskBadgeClass(reason: AtRiskTaskRow['reason']) {
   return 'bg-surface-container-high text-on-surface-variant';
 }
 
+async function hydrateJiraFromClockwork(cwKeys: readonly string[]): Promise<void> {
+  if (cwKeys.length === 0) return;
+
+  const keysToFetch = missingIssueKeys(cwKeys, jiraStore.issues);
+  if (keysToFetch.length > 0) {
+    await jiraStore.fetchIssuesByKeys(keysToFetch, { includeChangelog: false });
+  }
+
+  const linked = cwKeys
+    .map(k => jiraStore.issues.find(i => i.key.toUpperCase() === k.toUpperCase()))
+    .filter((i): i is NonNullable<typeof i> => i != null);
+  const programKeys = collectRelatedProgramKeysForIssues(linked);
+  const parentsToFetch = missingIssueKeys(programKeys, jiraStore.issues);
+  if (parentsToFetch.length > 0) {
+    await jiraStore.fetchIssuesByKeys(parentsToFetch, { includeChangelog: false });
+  }
+}
+
+function issueNeedsChangelog(key: string): boolean {
+  const issue = jiraStore.issues.find(i => i.key.toUpperCase() === key.toUpperCase());
+  return issue != null && issue.changelog === undefined;
+}
+
+async function loadChangelogForTeamTasks(): Promise<void> {
+  const teamsFilter = teamFilterFromLoadedIssues(jiraStore.boardName, jiraStore.issues);
+  const active = activeTeamTasksFromClockwork(
+    clockworkStore.analysis,
+    jiraStore.issues,
+    teamsFilter,
+  );
+  const needsChangelog = active.map(t => t.key).filter(issueNeedsChangelog);
+  if (needsChangelog.length === 0) {
+    changelogReady.value = true;
+    return;
+  }
+
+  changelogLoading.value = true;
+  try {
+    await jiraStore.fetchIssuesByKeys(needsChangelog, { includeChangelog: true });
+    changelogReady.value = true;
+  } catch (err: unknown) {
+    console.error('Changelog load failed:', err);
+    changelogReady.value = true;
+  } finally {
+    changelogLoading.value = false;
+  }
+}
+
 async function refresh() {
   const boardId = jiraStore.defaultBoardId;
   loadAttempted.value = true;
   if (!boardId) return;
 
   loading.value = true;
-  dataReady.value = false;
+  workloadReady.value = false;
+  changelogReady.value = false;
+  changelogLoading.value = false;
 
   try {
-    await Promise.all([
-      jiraStore.fetchProgramsOverview(boardId),
-      clockworkStore.fetchAnalysis(boardId, dateFrom.value, dateTo.value),
-    ]);
+    await clockworkStore.fetchAnalysis(boardId, dateFrom.value, dateTo.value);
 
     const cwKeys = collectClockworkIssueKeys(clockworkStore.analysis);
-    if (cwKeys.length > 0) {
-      await jiraStore.fetchIssuesByKeys(cwKeys, { includeChangelog: false });
+    await hydrateJiraFromClockwork(cwKeys);
 
-      const linked = cwKeys
-        .map(k => jiraStore.issues.find(i => i.key.toUpperCase() === k.toUpperCase()))
-        .filter((i): i is NonNullable<typeof i> => i != null);
-      const programKeys = collectRelatedProgramKeysForIssues(linked);
-      const parentsToFetch = missingIssueKeys(programKeys, jiraStore.issues);
-      if (parentsToFetch.length > 0) {
-        await jiraStore.fetchIssuesByKeys(parentsToFetch, { includeChangelog: false });
-      }
-    }
+    workloadReady.value = true;
+    loading.value = false;
 
-    const teams = collectStatscoreTeams(buildProgramsFromIssues(jiraStore.issues));
-    const teamsFilter = defaultTeamFilterForBoard(jiraStore.boardName, teams);
-    const active = activeTeamTasksFromClockwork(
-      clockworkStore.analysis,
-      jiraStore.issues,
-      teamsFilter,
-    );
-    const changelogKeys = active.map(t => t.key);
-    if (changelogKeys.length > 0) {
-      await jiraStore.fetchIssuesByKeys(changelogKeys, { includeChangelog: true });
-    }
-
-    dataReady.value = true;
+    await loadChangelogForTeamTasks();
   } catch (err: unknown) {
     console.error('Team summary refresh failed:', err);
-    dataReady.value = true;
+    workloadReady.value = true;
+    changelogReady.value = true;
   } finally {
     loading.value = false;
+    changelogLoading.value = false;
   }
 }
 

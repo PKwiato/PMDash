@@ -61,13 +61,18 @@ test('WorklogAnalysisService keeps only board users and sums their Clockwork hou
     listBoardUsers: async () => boardUsers,
   };
 
+  let receivedAuthorIds: string[] | undefined;
   const clockworkAdapter: IClockworkAdapter = {
-    listWorklogs: async () => worklogs,
+    listWorklogs: async (_from, _to, query) => {
+      receivedAuthorIds = query?.authorAccountIds ? [...query.authorAccountIds] : undefined;
+      return worklogs;
+    },
   };
 
   const service = new WorklogAnalysisService(jiraAdapter, clockworkAdapter);
   const analysis = await service.analyzeBoard(214, '2026-05-12', '2026-05-12');
 
+  assert.deepEqual(receivedAuthorIds, ['user-1', 'user-2']);
   assert.equal(analysis.length, 2);
 
   const alice = analysis.find(item => item.user.accountId === 'user-1');

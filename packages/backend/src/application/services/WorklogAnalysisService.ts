@@ -67,7 +67,9 @@ export class WorklogAnalysisService {
     if (users.length === 0) return [];
 
     const userAccountIds = new Set(users.map(user => user.accountId));
-    const rawWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo);
+    const rawWorklogs = await this.clockworkAdapter.listWorklogs(dateFrom, dateTo, {
+      authorAccountIds: users.map(user => user.accountId),
+    });
     const allWorklogs = await hydrateClockworkIssueKeys(
       rawWorklogs,
       ids => this.jiraAdapter.resolveIssueKeysByIds(ids),
