@@ -51,4 +51,22 @@ export class JiraApiClient {
     }
     return res.json() as Promise<T>;
   }
+
+  async post<T>(path: string, body: unknown, type: 'api' | 'agile' | 'clockwork' = 'api'): Promise<T> {
+    let base = this.baseUrl;
+    if (type === 'agile') base = this.agileBaseUrl;
+    if (type === 'clockwork') base = this.clockworkBaseUrl;
+    const url = `${base}${path}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new JiraApiError(res.status, text);
+    }
+    return res.json() as Promise<T>;
+  }
 }

@@ -28,6 +28,20 @@ test('mapClockworkWorklogResponse maps author and issue fields', () => {
   assert.equal(mapped.started, '2021-02-08T14:23:35Z');
 });
 
+test('mapClockworkWorklogResponse maps top-level issueId when issue key is absent', () => {
+  const mapped = mapClockworkWorklogResponse({
+    id: '10294',
+    timeSpentSeconds: 3600,
+    started: '2023-04-03T02:15:00+02:00',
+    author: { accountId: 'user-1' },
+    issueId: '17843',
+  });
+
+  assert.equal(mapped.issueKey, '');
+  assert.equal(mapped.issueId, '17843');
+  assert.equal(mapped.timeSpentSeconds, 3600);
+});
+
 test('ClockworkApiAdapter paginates worklogs until a short page is returned', async () => {
   const calls: Array<Record<string, string | string[]>> = [];
   const client = {
@@ -64,4 +78,44 @@ test('ClockworkApiAdapter paginates worklogs until a short page is returned', as
   assert.equal(calls[0].expand, 'authors');
   assert.equal(calls[0].offset, '0');
   assert.equal(calls[1].offset, '10000');
+});
+
+test('ClockworkApiAdapter scopes worklogs to author account ids', async () => {
+  const calls: Array<Record<string, string | string[]>> = [];
+  const client = {
+    async get<T>(_path: string, params?: Record<string, string | string[]>): Promise<T> {
+      calls.push(params ?? {});
+      const accountId = params?.account_id;
+      if (accountId === 'user-1') {
+        return [
+          {
+            id: 1,
+            timeSpentSeconds: 3600,
+            started: '2026-05-01T09:00:00Z',
+            author: { accountId: 'user-1' },
+            issue: { key: 'SSP-1' },
+          },
+        ] as T;
+      }
+      return [
+        {
+          id: 2,
+          timeSpentSeconds: 1800,
+          started: '2026-05-01T10:00:00Z',
+          author: { accountId: 'user-2' },
+          issue: { key: 'SSP-2' },
+        },
+      ] as T;
+    },
+  } as ClockworkApiClient;
+
+  const adapter = new ClockworkApiAdapter(client);
+  const worklogs = await adapter.listWorklogs('2026-05-01', '2026-05-31', {
+    authorAccountIds: ['user-1', 'user-2'],
+  });
+
+  assert.equal(worklogs.length, 2);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].account_id, 'user-1');
+  assert.equal(calls[1].account_id, 'user-2');
 });

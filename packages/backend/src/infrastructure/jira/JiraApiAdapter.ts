@@ -485,15 +485,22 @@ export class JiraApiAdapter implements IJiraAdapter {
       const trimmed = keys.map(k => k.trim()).filter(Boolean);
       const uniq = [...new Set(trimmed)];
       const encoded = uniq.map(k => encodeURIComponent(k));
-      const raws = await mapWithConcurrency(encoded, 6, key => this.fetchRawIssueWithFullChangelog(key));
-      const byKey = new Map(uniq.map((k, i) => [k.toUpperCase(), raws[i]!]));
-      return trimmed.map(k => {
-        const raw = byKey.get(k.toUpperCase());
-        if (!raw) {
-          throw new Error(`Missing Jira payload for key ${k}`);
+      const raws = await mapWithConcurrency(encoded, 6, async key => {
+        try {
+          return await this.fetchRawIssueWithFullChangelog(key);
+        } catch (err: unknown) {
+          console.warn(`Failed to load changelog for issue ${key}:`, err);
+          return null;
         }
-        return JiraResponseMapper.toIssue(raw as never);
       });
+      const out: JiraIssue[] = [];
+      for (let i = 0; i < uniq.length; i++) {
+        const raw = raws[i];
+        if (raw) {
+          out.push(JiraResponseMapper.toIssue(raw as never));
+        }
+      }
+      return out;
     }
 
     const uniq = [...new Set(keys.map(k => k.trim()).filter(Boolean))];
@@ -507,6 +514,30 @@ export class JiraApiAdapter implements IJiraAdapter {
       },
     );
     return data.issues.map(i => JiraResponseMapper.toIssue(i as never));
+  }
+
+  async resolveIssueKeysByIds(issueIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    const out = new Map<string, string>();
+    const unique = [...new Set(issueIds.map(id => id.trim()).filter(Boolean))];
+    const BATCH = 100;
+
+    for (let i = 0; i < unique.length; i += BATCH) {
+      const chunk = unique.slice(i, i + BATCH);
+      const data = await this.client.post<{
+        issues?: Array<{ id?: string; key?: string }>;
+      }>('/issue/bulkfetch', {
+        fields: ['key'],
+        issueIdsOrKeys: chunk,
+      });
+
+      for (const issue of data.issues ?? []) {
+        if (issue.id && issue.key) {
+          out.set(String(issue.id), issue.key);
+        }
+      }
+    }
+
+    return out;
   }
 
   async listClockworkWorklogs(startingAt: string, endingAt: string, userAccountIds?: string[] | string, projectKeys?: string[]): Promise<ClockworkWorklog[]> {
