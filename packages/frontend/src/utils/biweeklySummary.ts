@@ -26,6 +26,21 @@ export interface PersonWorkload {
   inconsistencyCount: number;
 }
 
+export interface TaskPersonContribution {
+  accountId: string;
+  displayName: string;
+  avatarUrl?: string;
+  seconds: number;
+}
+
+export interface TaskWorkloadRow {
+  issueKey: string;
+  summary: string;
+  totalSeconds: number;
+  percentOfTeam: number;
+  contributors: TaskPersonContribution[];
+}
+
 export interface CompletedTaskRow {
   issue: JiraIssueDto;
   completedAt: string;
@@ -143,11 +158,87 @@ export function collectRelatedProgramKeysForIssues(issues: readonly JiraIssueDto
   const keys = new Set<string>();
   for (const issue of issues) {
     if (issue.epicKey?.trim()) keys.add(issue.epicKey.trim());
-    if (issue.parent?.key && isProgramIssueType(issue.parent.issueType)) {
-      keys.add(issue.parent.key);
-    }
+    const parentKey = issue.parent?.key?.trim();
+    if (parentKey) keys.add(parentKey);
   }
   return [...keys];
+}
+
+/** Walk parent pointers so intermediate tasks (e.g. subtasks) resolve program team. */
+export function collectParentChainKeys(
+  seeds: readonly JiraIssueDto[],
+  allIssues: readonly JiraIssueDto[],
+): string[] {
+  const byKey = new Map(allIssues.map(i => [i.key.toUpperCase(), i]));
+  const keys = new Set<string>();
+  const visit = (issue: JiraIssueDto, depth: number) => {
+    if (depth > 6) return;
+    const parentKey = issue.parent?.key?.trim();
+    if (!parentKey) return;
+    const normalized = parentKey.toUpperCase();
+    if (keys.has(normalized)) return;
+    keys.add(parentKey);
+    const parentIssue = byKey.get(normalized);
+    if (parentIssue) visit(parentIssue, depth + 1);
+  };
+  for (const issue of seeds) visit(issue, 0);
+  return [...keys];
+}
+
+export function programKeysMissingTeam(
+  keys: readonly string[],
+  issues: readonly JiraIssueDto[],
+): string[] {
+  const byKey = new Map(issues.map(i => [i.key.toUpperCase(), i]));
+  return keys.filter(key => {
+    const issue = byKey.get(key.trim().toUpperCase());
+    return issue != null && isProgramIssueType(issue.issueType) && !issue.statscoreTeam?.trim();
+  });
+}
+
+type FetchIssuesByKeys = (
+  keys: string[],
+  options?: { includeChangelog?: boolean },
+) => Promise<readonly JiraIssueDto[]>;
+
+/** Fetch clockwork issues, parent chains, and programs needed for team filter. */
+export async function hydrateClockworkTeamContext(
+  cwKeys: readonly string[],
+  fetchByKeys: FetchIssuesByKeys,
+  getIssues: () => readonly JiraIssueDto[],
+): Promise<void> {
+  const normalized = [...new Set(cwKeys.map(k => k.trim()).filter(Boolean))];
+  if (normalized.length === 0) return;
+
+  await fetchByKeys(normalized, { includeChangelog: false });
+
+  for (let round = 0; round < 4; round++) {
+    const issues = getIssues();
+    const linked = normalized
+      .map(k => issues.find(i => i.key.toUpperCase() === k.toUpperCase()))
+      .filter((i): i is JiraIssueDto => i != null);
+
+    const toFetch = new Set<string>([
+      ...collectRelatedProgramKeysForIssues(linked),
+      ...collectParentChainKeys(linked, issues),
+    ]);
+    const missing = missingIssueKeys([...toFetch], issues);
+    if (missing.length === 0) break;
+    await fetchByKeys(missing, { includeChangelog: false });
+  }
+
+  const issues = getIssues();
+  const linked = normalized
+    .map(k => issues.find(i => i.key.toUpperCase() === k.toUpperCase()))
+    .filter((i): i is JiraIssueDto => i != null);
+  const programKeys = collectRelatedProgramKeysForIssues(linked).filter(key => {
+    const issue = issues.find(i => i.key.toUpperCase() === key.toUpperCase());
+    return issue != null && isProgramIssueType(issue.issueType);
+  });
+  const stalePrograms = programKeysMissingTeam(programKeys, issues);
+  if (stalePrograms.length > 0) {
+    await fetchByKeys(stalePrograms, { includeChangelog: false });
+  }
 }
 
 export function missingIssueKeys(
@@ -447,7 +538,63 @@ export function buildPersonWorkloads(
     });
   }
 
-  workloads.sort((a, b) => b.totalSeconds - a.totalSeconds);
+  workloads.sort((a, b) => {
+    const byHours = b.totalSeconds - a.totalSeconds;
+    if (byHours !== 0) return byHours;
+    return a.user.displayName.localeCompare(b.user.displayName, 'pl');
+  });
+  return workloads;
+}
+
+/** Board members with Clockwork hours but no tasks passing the team filter. */
+export function buildFilteredOutPersonWorkloads(
+  analysis: readonly UserAnalysis[],
+  allIssues: readonly JiraIssueDto[],
+  selectedTeams: readonly string[],
+): PersonWorkload[] {
+  const visibleIds = new Set(
+    buildPersonWorkloads(analysis, allIssues, selectedTeams).map(p => p.user.accountId),
+  );
+  const issueByKey = new Map(allIssues.map(i => [i.key.toUpperCase(), i]));
+  const workloads: PersonWorkload[] = [];
+
+  for (const item of analysis) {
+    if (item.totalSeconds <= 0 || visibleIds.has(item.user.accountId)) continue;
+
+    const issues: PersonIssueWorkloadRow[] = [];
+    for (const row of item.issueBreakdown ?? []) {
+      const key = row.issueKey.toUpperCase();
+      const issue = issueByKey.get(key);
+      issues.push({
+        issueKey: issue?.key ?? row.issueKey,
+        summary: issue?.summary ?? row.issueKey,
+        status: issue?.status ?? '—',
+        programKey: issue ? taskProgramKey(issue, allIssues) : null,
+        assignee: issue?.assignee ?? null,
+        seconds: row.seconds,
+        logCount: row.logCount,
+        percentOfUser: 0,
+        isAssignee: false,
+        jiraLinked: issue != null,
+      });
+    }
+    if (issues.length === 0) continue;
+
+    const totalSeconds = issues.reduce((sum, row) => sum + row.seconds, 0);
+    for (const row of issues) {
+      row.percentOfUser = totalSeconds > 0 ? Math.round((row.seconds / totalSeconds) * 100) : 0;
+    }
+    issues.sort((a, b) => b.seconds - a.seconds);
+
+    workloads.push({
+      user: item.user,
+      totalSeconds,
+      issues,
+      inconsistencyCount: item.inconsistencies.length,
+    });
+  }
+
+  workloads.sort((a, b) => a.user.displayName.localeCompare(b.user.displayName, 'pl'));
   return workloads;
 }
 
@@ -457,6 +604,75 @@ function rowIssueKey(breakdown: readonly IssueWorklogBreakdown[], normalizedKey:
 
 export function totalTeamWorklogSeconds(workloads: readonly PersonWorkload[]): number {
   return workloads.reduce((sum, person) => sum + person.totalSeconds, 0);
+}
+
+/** Worklogs per task with per-person breakdown; team filter applied after Jira join. */
+export function buildTaskWorkloads(
+  analysis: readonly UserAnalysis[],
+  allIssues: readonly JiraIssueDto[],
+  selectedTeams: readonly string[],
+): TaskWorkloadRow[] {
+  const issueByKey = new Map(allIssues.map(i => [i.key.toUpperCase(), i]));
+  const byTask = new Map<string, { seconds: number; contributors: Map<string, TaskPersonContribution> }>();
+
+  for (const item of analysis) {
+    for (const row of item.issueBreakdown ?? []) {
+      const key = row.issueKey.toUpperCase();
+      const issue = issueByKey.get(key);
+      if (!clockworkRowMatchesTeam(issue, allIssues, selectedTeams)) continue;
+
+      const entry = byTask.get(key) ?? { seconds: 0, contributors: new Map() };
+      entry.seconds += row.seconds;
+
+      const existing = entry.contributors.get(item.user.accountId);
+      if (existing) {
+        existing.seconds += row.seconds;
+      } else {
+        entry.contributors.set(item.user.accountId, {
+          accountId: item.user.accountId,
+          displayName: item.user.displayName,
+          avatarUrl: item.user.avatarUrl,
+          seconds: row.seconds,
+        });
+      }
+
+      byTask.set(key, entry);
+    }
+  }
+
+  const totalSeconds = [...byTask.values()].reduce((sum, entry) => sum + entry.seconds, 0);
+  const tasks: TaskWorkloadRow[] = [];
+
+  for (const [key, data] of byTask.entries()) {
+    const issue = issueByKey.get(key);
+    const contributors = [...data.contributors.values()].sort((a, b) => b.seconds - a.seconds);
+    tasks.push({
+      issueKey: issue?.key ?? rowIssueKey(itemIssueBreakdown(analysis, key), key),
+      summary: issue?.summary ?? key,
+      totalSeconds: data.seconds,
+      percentOfTeam: totalSeconds > 0 ? Math.round((data.seconds / totalSeconds) * 100) : 0,
+      contributors,
+    });
+  }
+
+  tasks.sort((a, b) => b.totalSeconds - a.totalSeconds);
+  return tasks;
+}
+
+function itemIssueBreakdown(
+  analysis: readonly UserAnalysis[],
+  normalizedKey: string,
+): readonly IssueWorklogBreakdown[] {
+  for (const item of analysis) {
+    if (item.issueBreakdown?.some(r => r.issueKey.toUpperCase() === normalizedKey)) {
+      return item.issueBreakdown;
+    }
+  }
+  return [];
+}
+
+export function formatWorklogHours(seconds: number): string {
+  return `${(seconds / 3600).toFixed(1)}h`;
 }
 
 export function computeBiweeklyKpis(
