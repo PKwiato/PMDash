@@ -214,7 +214,7 @@
                   {{ pr.reviewers.length ? pr.reviewers.map(r => '@' + r).join(', ') : '—' }}
                 </td>
                 <td class="px-lg py-md">
-                  <HoverTooltip :text="reasonTooltip(pr.reason)">
+                  <HoverTooltip inline :text="reasonTooltip(pr.reason)">
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase cursor-help" :class="reasonBadgeClass(pr.reason)">
                       {{ reasonLabel(pr.reason) }}
                     </span>
