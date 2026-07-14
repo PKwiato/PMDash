@@ -144,3 +144,52 @@ export interface JiraSprintScopeDto {
   mode: JiraSprintScopeMode;
   sprint: JiraSprintSummaryDto | null;
 }
+
+export interface PrHealthKpis {
+  p50MergeDays: number;
+  p90MergeDays: number;
+  mergedCount: number;
+  mergedDeltaPercent: number | null;
+  openBacklog: number;
+  staleCount: number;
+  reviewCoveragePercent: number;
+  largePrPercent: number;
+}
+
+export type PrAttentionReason = 'stale_no_review' | 'no_review' | 'stale' | 'large';
+
+export interface PrAttentionItem {
+  number: number;
+  title: string;
+  author: string;
+  authorAvatarUrl: string;
+  daysOpen: number;
+  linesChanged: number;
+  reviewers: string[];
+  reason: PrAttentionReason;
+}
+
+export interface AuthorActivityRow {
+  login: string;
+  avatarUrl: string;
+  opened: number;
+  merged: number;
+  sharePercent: number;
+  avgMergeDays: number;
+  avgSize: number;
+}
+
+export interface ReviewerActivityRow {
+  login: string;
+  reviewCount: number;
+  uniquePrs: number;
+}
+
+export interface PrStatsDto {
+  period: { from: string; to: string };
+  previousPeriod: { from: string; to: string };
+  health: PrHealthKpis;
+  needsAttention: PrAttentionItem[];
+  authorActivity: AuthorActivityRow[];
+  reviewerActivity: ReviewerActivityRow[];
+}

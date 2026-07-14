@@ -22,6 +22,7 @@ import { projectsRouter } from './routes/projects.routes';
 import { tagsRouter } from './routes/tags.routes';
 import { tasksRouter } from './routes/tasks.routes';
 import { vaultRouter } from './routes/vault.routes';
+import { githubRouter } from './routes/github.routes';
 
 export function createExpressApp(config: AppConfig, dataDir: string) {
   const app = express();
@@ -56,6 +57,7 @@ export function createExpressApp(config: AppConfig, dataDir: string) {
   app.use('/api/clockwork', clockworkRouter(jiraAdapter, dataDir));
   app.use('/api/vault', vaultRouter(vaultWriter, tagRepo, config, dataDir));
   app.use('/api/archive', archiveRouter(projectRepo));
+  app.use('/api/github', githubRouter(dataDir));
   app.use(errorHandler);
 
   return app;

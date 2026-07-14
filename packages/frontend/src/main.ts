@@ -17,6 +17,7 @@ import TagsView from './views/TagsView.vue';
 import ClockworkAnalysisView from './views/ClockworkAnalysisView.vue';
 import ProgramsView from './views/ProgramsView.vue';
 import BiweeklySummaryView from './views/BiweeklySummaryView.vue';
+import PrStatisticsView from './views/PrStatisticsView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +36,7 @@ const router = createRouter({
         { path: 'notes/tasks', name: 'note-tasks', component: NoteTasksOverview },
         { path: 'tags', name: 'tags', component: TagsView },
         { path: 'clockwork/analysis', name: 'clockwork-analysis', component: ClockworkAnalysisView },
+        { path: 'pr-statistics', name: 'pr-statistics', component: PrStatisticsView },
         { path: 'settings', name: 'settings', component: SettingsView },
       ]
     },

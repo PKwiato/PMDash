@@ -17,6 +17,11 @@ export interface AppConfig {
     testDir: string;
     activeMode: 'production' | 'test';
   };
+  github: {
+    token: string;
+    defaultOwner: string;
+    defaultRepo: string;
+  };
 }
 
 const DEFAULT_CLOCKWORK_BASE_URL = 'https://api.clockwork.report/v1';
@@ -34,6 +39,7 @@ export class ConfigStore {
           testDir: dataDir,  // Default to existing data folder
           activeMode: 'test'
         },
+        github: { token: '', defaultOwner: 'statscore', defaultRepo: 'marketplace' },
       };
       await fs.writeJSON(configPath, defaultConfig, { spaces: 2 });
       return defaultConfig;
@@ -63,6 +69,24 @@ export class ConfigStore {
       }
       if (typeof config.clockwork.token !== 'string') {
         config.clockwork.token = '';
+        migrated = true;
+      }
+    }
+
+    if (!config.github) {
+      config.github = { token: '', defaultOwner: 'statscore', defaultRepo: 'marketplace' };
+      migrated = true;
+    } else {
+      if (typeof config.github.token !== 'string') {
+        config.github.token = '';
+        migrated = true;
+      }
+      if (!config.github.defaultOwner) {
+        config.github.defaultOwner = 'statscore';
+        migrated = true;
+      }
+      if (!config.github.defaultRepo) {
+        config.github.defaultRepo = 'marketplace';
         migrated = true;
       }
     }
