@@ -25,23 +25,39 @@ function mergeJiraIssueDto(prev: JiraIssueDto | undefined, next: JiraIssueDto): 
     return {
       ...next,
       epicColor: next.epicColor ?? prev.epicColor,
-      parent: next.parent ?? prev.parent,
+      parent: mergeParentRef(prev.parent, next.parent),
       created: next.created ?? prev.created,
+      statscoreTeam: next.statscoreTeam ?? prev.statscoreTeam,
       changelog: prev.changelog,
       statusDwellBusinessDays: prev.statusDwellBusinessDays,
       currentStatusBusinessDays: prev.currentStatusBusinessDays,
       returnsCount: prev.returnsCount,
     };
   }
-  const parent =
-    next.parent && prev.parent
-      ? { ...next.parent, color: next.parent.color ?? prev.parent.color }
-      : (next.parent ?? prev.parent);
 
   return {
     ...next,
     epicColor: next.epicColor ?? prev.epicColor,
-    parent,
+    parent: mergeParentRef(prev.parent, next.parent),
+    statscoreTeam: next.statscoreTeam ?? prev.statscoreTeam,
+  };
+}
+
+function mergeParentRef(
+  prev: JiraIssueDto['parent'],
+  next: JiraIssueDto['parent'],
+): JiraIssueDto['parent'] {
+  if (!next) return prev ?? null;
+  if (!prev) return next;
+  const issueType =
+    next.issueType && next.issueType !== 'Unknown'
+      ? next.issueType
+      : prev.issueType;
+  return {
+    ...next,
+    issueType,
+    color: next.color ?? prev.color,
+    summary: next.summary !== next.key ? next.summary : prev.summary,
   };
 }
 
@@ -164,19 +180,26 @@ export const useJiraStore = defineStore('jira', () => {
   }
 
   async function fetchIssuesByKeys(keys: string[], options?: { includeChangelog?: boolean }) {
-    if (keys.length === 0) return [];
+    const uniq = [...new Set(keys.map(k => k.trim()).filter(Boolean))];
+    if (uniq.length === 0) return [];
+
+    const CHUNK = 40;
+    const merged: JiraIssueDto[] = [];
 
     try {
-      const response = await api.post<JiraIssueDto[]>('/jira/issues/bulk', {
-        keys,
-        includeChangelog: options?.includeChangelog === true,
-      });
-
-      mergeIssuesIntoStore(response.data);
-      return response.data;
+      for (let i = 0; i < uniq.length; i += CHUNK) {
+        const chunk = uniq.slice(i, i + CHUNK);
+        const response = await api.post<JiraIssueDto[]>('/jira/issues/bulk', {
+          keys: chunk,
+          includeChangelog: options?.includeChangelog === true,
+        });
+        mergeIssuesIntoStore(response.data);
+        merged.push(...response.data);
+      }
+      return merged;
     } catch (err: unknown) {
       console.error('Error fetching bulk Jira issues:', err);
-      return [];
+      return merged;
     }
   }
 

@@ -63,6 +63,14 @@ export function resolveEpic(
   };
 }
 
+/** Parent task key for subtasks; skips program/epic parents (hierarchy, not subtask grouping). */
+export function immediateTaskParentKey(issue: JiraIssueDto): string | null {
+  const parent = issue.parent;
+  if (!parent?.key) return null;
+  if (isProgramIssueType(parent.issueType)) return null;
+  return parent.key;
+}
+
 /** Epic first, then immediate parent; skips duplicate when parent.key === epicKey. */
 export function ancestorsForDisplay(
   issue: JiraIssueDto,

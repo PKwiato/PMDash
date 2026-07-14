@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-[1600px] mx-auto p-md lg:p-lg pb-44">
+  <div class="max-w-[1600px] mx-auto p-md lg:p-lg pb-72">
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-4 mb-lg">
       <div>
         <h1 class="font-headline-xl text-2xl font-bold text-on-surface tracking-tight">Podsumowanie 2 tygodni</h1>
@@ -188,11 +188,23 @@
 
       <!-- Team workload -->
       <section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-        <div class="px-lg py-md border-b border-outline-variant">
-          <h2 class="text-lg font-bold text-on-surface">Praca zespołu (Clockwork)</h2>
-          <p class="text-xs text-on-surface-variant mt-1">
-            Źródło: Clockwork. Taski Jiry podpięte po kluczu; widoczne tylko zespołowe po joinie.
-          </p>
+        <div class="px-lg py-md border-b border-outline-variant flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-lg font-bold text-on-surface">Praca zespołu (Clockwork)</h2>
+            <p class="text-xs text-on-surface-variant mt-1">
+              Źródło: Clockwork. Taski Jiry podpięte po kluczu; widoczne tylko zespołowe po joinie.
+              <span v-if="personWorkloads.length > 0" class="text-on-surface font-medium">
+                · {{ personWorkloads.length }} {{ personWorkloads.length === 1 ? 'osoba' : personWorkloads.length < 5 ? 'osoby' : 'osób' }}
+              </span>
+            </p>
+          </div>
+          <input
+            v-if="personWorkloads.length > 0 || filteredOutPersonWorkloads.length > 0"
+            v-model="personSearch"
+            type="search"
+            placeholder="Szukaj osoby…"
+            class="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-1.5 text-sm text-on-surface min-w-[180px]"
+          />
         </div>
 
         <div v-if="clockworkStore.loading" class="p-lg text-center text-on-surface-variant text-sm">
@@ -204,12 +216,24 @@
           Clockwork niedostępny: {{ clockworkStore.error }}
         </div>
 
-        <div v-else-if="personWorkloads.length === 0" class="p-lg text-sm text-on-surface-variant italic">
+        <div v-else-if="visiblePersonWorkloads.length === 0 && filteredOutPersonWorkloads.length === 0" class="p-lg text-sm text-on-surface-variant italic">
           Brak worklogów na taskach zespołu w tym okresie.
         </div>
 
-        <div v-else class="divide-y divide-outline-variant">
-          <div v-for="person in personWorkloads" :key="person.user.accountId">
+        <div v-else>
+          <div v-if="visiblePersonWorkloads.length > 0" class="px-lg pt-lg pb-md border-b border-outline-variant">
+            <h3 class="text-sm font-bold text-on-surface mb-1">Rozkład godzin po taskach</h3>
+            <p class="text-xs text-on-surface-variant mb-md">
+              Taski zespołu — subtaski pogrupowane pod rodzicem. Najedź na wycinek, aby zobaczyć kto ile zaraportował.
+            </p>
+            <ClockworkTasksPieChart
+              :tasks="taskWorkloads"
+              @select="key => $router.push(`/tasks/${key}`)"
+            />
+          </div>
+
+          <div class="divide-y divide-outline-variant">
+          <div v-for="person in visiblePersonWorkloads" :key="person.user.accountId">
             <button
               type="button"
               class="w-full px-lg py-md flex items-center gap-4 hover:bg-surface-container/40 transition-colors text-left"
@@ -230,7 +254,7 @@
               <div class="flex-1 min-w-0">
                 <div class="font-bold text-on-surface">{{ person.user.displayName }}</div>
                 <div class="text-xs text-on-surface-variant">
-                  {{ person.issues.length }} tasków
+                  {{ personTaskCountLabel(person.issues) }}
                   <span v-if="person.inconsistencyCount > 0" class="text-amber-600 dark:text-amber-400">
                     · {{ person.inconsistencyCount }} niespójności
                   </span>
@@ -262,16 +286,34 @@
                   </thead>
                   <tbody class="divide-y divide-outline-variant">
                     <tr
-                      v-for="row in person.issues"
-                      :key="row.issueKey"
+                      v-for="row in groupedPersonIssues(person.issues)"
+                      :key="row.issueKey + (row.isSubtask ? '-sub' : '')"
                       class="hover:bg-surface-container/50 cursor-pointer"
+                      :class="row.isSubtask ? 'bg-surface-container-low/20' : ''"
                       @click="$router.push(`/tasks/${row.issueKey}`)"
                     >
-                      <td class="px-md py-2 font-bold text-secondary whitespace-nowrap">{{ row.issueKey }}</td>
-                      <td class="px-md py-2 text-on-surface max-w-[220px]">
-                        <div class="truncate">{{ row.summary }}</div>
+                      <td
+                        class="px-md py-2 font-bold whitespace-nowrap"
+                        :class="row.isSubtask ? 'text-secondary/80 pl-8' : 'text-secondary'"
+                      >
+                        <span v-if="row.isSubtask" class="material-symbols-outlined text-[14px] align-middle mr-1 text-on-surface-variant">subdirectory_arrow_right</span>
+                        {{ row.issueKey }}
+                      </td>
+                      <td
+                        class="px-md py-2 text-on-surface max-w-[220px]"
+                        :class="row.isSubtask ? 'pl-8' : ''"
+                      >
+                        <div class="truncate" :class="row.isSubtask ? 'text-sm' : ''">{{ row.summary }}</div>
                         <div class="flex flex-wrap gap-1 mt-0.5">
                           <span v-if="row.programKey" class="text-[10px] text-on-surface-variant">{{ row.programKey }}</span>
+                          <span
+                            v-if="row.subtaskCount"
+                            class="text-[10px] font-bold uppercase text-on-surface-variant"
+                          >{{ row.subtaskCount }} subtasków</span>
+                          <span
+                            v-if="row.isSubtask"
+                            class="text-[10px] font-bold uppercase text-on-surface-variant"
+                          >subtask</span>
                           <span
                             v-if="!row.jiraLinked"
                             class="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400"
@@ -283,12 +325,50 @@
                         </div>
                       </td>
                       <td class="px-md py-2 text-xs text-on-surface-variant whitespace-nowrap">{{ row.status }}</td>
-                      <td class="px-md py-2 text-right tabular-nums font-medium">{{ formatHours(row.seconds) }}</td>
-                      <td class="px-md py-2 text-right tabular-nums text-on-surface-variant">{{ row.percentOfUser }}%</td>
-                      <td class="px-md py-2 text-center tabular-nums text-on-surface-variant">{{ row.logCount }}</td>
+                      <td class="px-md py-2 text-right tabular-nums font-medium">
+                        {{ row.seconds > 0 ? formatHours(row.seconds) : '—' }}
+                      </td>
+                      <td class="px-md py-2 text-right tabular-nums text-on-surface-variant">
+                        {{ row.seconds > 0 ? `${row.percentOfUser}%` : '—' }}
+                      </td>
+                      <td class="px-md py-2 text-center tabular-nums text-on-surface-variant">
+                        {{ row.logCount > 0 ? row.logCount : '—' }}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+          </div>
+
+          <div
+            v-if="visibleFilteredOutPersonWorkloads.length > 0"
+            class="border-t-2 border-amber-500/30 bg-amber-500/5"
+          >
+            <div class="px-lg py-md border-b border-amber-500/20">
+              <h3 class="text-sm font-bold text-amber-800 dark:text-amber-300">
+                Poza filtrem zespołu ({{ visibleFilteredOutPersonWorkloads.length }})
+              </h3>
+              <p class="text-xs text-amber-700/80 dark:text-amber-400/80 mt-1">
+                Mają godziny w Clockwork, ale żaden task nie przeszedł filtru STATSCORE Team.
+              </p>
+            </div>
+            <div class="divide-y divide-amber-500/10">
+              <div
+                v-for="person in visibleFilteredOutPersonWorkloads"
+                :key="'out-' + person.user.accountId"
+                class="px-lg py-md flex items-center gap-4"
+              >
+                <div class="w-10 h-10 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold shrink-0">
+                  {{ person.user.displayName.charAt(0) }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-bold text-on-surface">{{ person.user.displayName }}</div>
+                  <div class="text-xs text-on-surface-variant">
+                    {{ person.issues.length }} tasków · {{ formatHours(person.totalSeconds) }} łącznie
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -315,6 +395,10 @@
           <span>CW godziny: <strong class="text-on-surface">{{ diagnostics.totalClockworkHours.toFixed(1) }}h</strong></span>
           <span>Jira join: <strong class="text-on-surface">{{ diagnostics.jiraLinked }}</strong></span>
           <span>zespół: <strong class="text-on-surface">{{ diagnostics.teamMatched }}</strong></span>
+          <span>w zestawieniu: <strong class="text-on-surface">{{ personWorkloads.length }}</strong></span>
+          <span v-if="filteredOutPersonWorkloads.length > 0" class="text-amber-600 dark:text-amber-400">
+            poza filtrem: <strong>{{ filteredOutPersonWorkloads.length }}</strong>
+          </span>
           <span v-if="diagnostics.filteredOut > 0" class="text-amber-600 dark:text-amber-400">
             odfiltrowane: <strong>{{ diagnostics.filteredOut }}</strong>
           </span>
@@ -353,22 +437,28 @@
 import { ref, computed, onMounted } from 'vue';
 import { useJiraStore } from '../stores/jiraStore';
 import { useClockworkStore } from '../stores/clockworkStore';
+import ClockworkTasksPieChart from '../components/ClockworkTasksPieChart.vue';
 import {
   defaultBiweeklyRange,
   formatPeriodDate,
   collectClockworkIssueKeys,
-  collectRelatedProgramKeysForIssues,
-  missingIssueKeys,
+  hydrateClockworkTeamContext,
   activeTeamTasksFromClockwork,
   completedTasksInPeriod,
   atRiskTasks,
   computeBiweeklyKpis,
   computeBiweeklyDiagnostics,
   buildPersonWorkloads,
+  buildFilteredOutPersonWorkloads,
+  buildTaskWorkloads,
+  groupPersonIssueRows,
+  rollupSubtasksInTaskWorkloads,
   totalTeamWorklogSeconds,
   teamFilterFromLoadedIssues,
   type CompletedTaskRow,
   type AtRiskTaskRow,
+  type PersonIssueWorkloadRow,
+  type GroupedPersonIssueRow,
 } from '../utils/biweeklySummary';
 
 const jiraStore = useJiraStore();
@@ -383,6 +473,7 @@ const changelogReady = ref(false);
 const changelogLoading = ref(false);
 const loadAttempted = ref(false);
 const expandedPeople = ref(new Set<string>());
+const personSearch = ref('');
 
 const teamLabel = computed(() => jiraStore.boardName || '—');
 const selectedTeams = computed(() =>
@@ -417,10 +508,49 @@ const personWorkloads = computed(() =>
   buildPersonWorkloads(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
 );
 
+const filteredOutPersonWorkloads = computed(() =>
+  buildFilteredOutPersonWorkloads(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
+);
+
+function personMatchesSearch(name: string): boolean {
+  const q = personSearch.value.trim().toLowerCase();
+  if (!q) return true;
+  return name.toLowerCase().includes(q);
+}
+
+const visiblePersonWorkloads = computed(() =>
+  personWorkloads.value.filter(p => personMatchesSearch(p.user.displayName)),
+);
+
+const visibleFilteredOutPersonWorkloads = computed(() =>
+  filteredOutPersonWorkloads.value.filter(p => personMatchesSearch(p.user.displayName)),
+);
+
+const taskWorkloads = computed(() =>
+  rollupSubtasksInTaskWorkloads(
+    buildTaskWorkloads(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
+    jiraStore.issues,
+  ),
+);
+
 const totalHours = computed(() => totalTeamWorklogSeconds(personWorkloads.value) / 3600);
 
 function formatHours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
+}
+
+function groupedPersonIssues(issues: readonly PersonIssueWorkloadRow[]): GroupedPersonIssueRow[] {
+  return groupPersonIssueRows(issues, jiraStore.issues);
+}
+
+function personTaskCountLabel(issues: readonly PersonIssueWorkloadRow[]): string {
+  const grouped = groupPersonIssueRows(issues, jiraStore.issues);
+  const subtasks = grouped.filter(r => r.isSubtask).length;
+  const topLevel = grouped.filter(r => !r.isSubtask).length;
+  if (subtasks === 0) {
+    return `${topLevel} ${topLevel === 1 ? 'task' : topLevel < 5 ? 'taski' : 'tasków'}`;
+  }
+  return `${topLevel} ${topLevel === 1 ? 'task' : topLevel < 5 ? 'taski' : 'tasków'} · ${subtasks} subtasków`;
 }
 
 function togglePerson(accountId: string) {
@@ -438,21 +568,11 @@ function riskBadgeClass(reason: AtRiskTaskRow['reason']) {
 }
 
 async function hydrateJiraFromClockwork(cwKeys: readonly string[]): Promise<void> {
-  if (cwKeys.length === 0) return;
-
-  const keysToFetch = missingIssueKeys(cwKeys, jiraStore.issues);
-  if (keysToFetch.length > 0) {
-    await jiraStore.fetchIssuesByKeys(keysToFetch, { includeChangelog: false });
-  }
-
-  const linked = cwKeys
-    .map(k => jiraStore.issues.find(i => i.key.toUpperCase() === k.toUpperCase()))
-    .filter((i): i is NonNullable<typeof i> => i != null);
-  const programKeys = collectRelatedProgramKeysForIssues(linked);
-  const parentsToFetch = missingIssueKeys(programKeys, jiraStore.issues);
-  if (parentsToFetch.length > 0) {
-    await jiraStore.fetchIssuesByKeys(parentsToFetch, { includeChangelog: false });
-  }
+  await hydrateClockworkTeamContext(
+    cwKeys,
+    (keys, opts) => jiraStore.fetchIssuesByKeys(keys, opts),
+    () => jiraStore.issues,
+  );
 }
 
 function issueNeedsChangelog(key: string): boolean {

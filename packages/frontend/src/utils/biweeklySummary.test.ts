@@ -5,8 +5,13 @@ import type { UserAnalysis } from '../stores/clockworkStore';
 import {
   activeTeamTasksFromClockwork,
   buildPersonWorkloads,
+  buildFilteredOutPersonWorkloads,
+  buildTaskWorkloads,
+  groupPersonIssueRows,
+  rollupSubtasksInTaskWorkloads,
   collectClockworkIssueKeys,
   collectRelatedProgramKeysForIssues,
+  collectParentChainKeys,
   computeBiweeklyDiagnostics,
   missingIssueKeys,
   totalTeamWorklogSeconds,
@@ -46,6 +51,36 @@ const analysis: UserAnalysis[] = [
 
 test('collectClockworkIssueKeys gathers keys from all board members', () => {
   assert.deepEqual(collectClockworkIssueKeys(analysis).sort(), ['COL-1', 'COL-2', 'OTHER-9']);
+});
+
+test('buildTaskWorkloads aggregates hours per task with contributor breakdown', () => {
+  const allIssues = [
+    teamTask('COL-1', 'Team task one', 'Alice'),
+    teamTask('COL-2', 'Team task two'),
+    teamTask('OTHER-9', 'Outside team', null, 'Other Team'),
+  ];
+
+  const multiUserAnalysis: UserAnalysis[] = [
+    ...analysis,
+    {
+      user: { accountId: 'u2', displayName: 'Bob' },
+      totalSeconds: 3 * 3600,
+      inconsistencies: [],
+      issueBreakdown: [{ issueKey: 'COL-1', seconds: 3 * 3600, logCount: 1 }],
+    },
+  ];
+
+  const tasks = buildTaskWorkloads(multiUserAnalysis, allIssues, ['Collector']);
+
+  assert.equal(tasks.length, 2);
+  assert.equal(tasks[0]?.issueKey, 'COL-1');
+  assert.equal(tasks[0]?.totalSeconds, 9 * 3600);
+  assert.equal(tasks[0]?.contributors.length, 2);
+  assert.equal(tasks[0]?.contributors[0]?.displayName, 'Alice');
+  assert.equal(tasks[0]?.contributors[0]?.seconds, 6 * 3600);
+  assert.equal(tasks[0]?.contributors[1]?.displayName, 'Bob');
+  assert.equal(tasks[0]?.percentOfTeam, 82);
+  assert.equal(tasks[1]?.issueKey, 'COL-2');
 });
 
 test('buildPersonWorkloads filters by team after Jira join', () => {
@@ -94,6 +129,36 @@ test('collectRelatedProgramKeysForIssues gathers epic and program parent keys', 
   assert.deepEqual(collectRelatedProgramKeysForIssues(issues).sort(), ['EPIC-1', 'PROG-1']);
 });
 
+test('collectRelatedProgramKeysForIssues hydrates parents with unknown issue type from overview cache', () => {
+  const issues = [
+    {
+      ...teamTask('BASE-3454', 'Task'),
+      parent: { id: 'p1', key: 'STAT-160346', summary: 'Prog', status: 'Open', priority: 'M', issueType: 'Unknown' },
+    },
+  ];
+  assert.deepEqual(collectRelatedProgramKeysForIssues(issues), ['STAT-160346']);
+});
+
+test('collectParentChainKeys walks intermediate task parents', () => {
+  const parent = teamTask('BASE-3454', 'Parent task');
+  const child = {
+    ...teamTask('BASE-3511', 'Subtask'),
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+  assert.deepEqual(collectParentChainKeys([child], [child, parent]).sort(), ['BASE-3454']);
+});
+
+test('buildFilteredOutPersonWorkloads lists users hidden by team filter', () => {
+  const allIssues = [
+    teamTask('COL-1', 'Team task', 'Alice'),
+    teamTask('OTHER-9', 'Outside', null, 'Other Team'),
+  ];
+  const visible = buildPersonWorkloads(analysis, allIssues, ['Collector']);
+  const hidden = buildFilteredOutPersonWorkloads(analysis, allIssues, ['Collector']);
+  assert.equal(visible.length, 1);
+  assert.equal(hidden.length, 0);
+});
+
 test('computeBiweeklyDiagnostics counts join and team filter stages', () => {
   const allIssues = [
     teamTask('COL-1', 'One'),
@@ -134,4 +199,128 @@ test('statscoreTeam on fetched issue passes filter without program on overview',
 
   const workloads = buildPersonWorkloads(cwOnly, allIssues, ['Collector']);
   assert.equal(workloads[0]?.issues[0]?.issueKey, 'COL-77');
+});
+
+test('groupPersonIssueRows nests subtasks under parent task', () => {
+  const parent = teamTask('BASE-3454', 'Parent task', 'Alice');
+  const sub = {
+    ...teamTask('BASE-3511', 'Subtask one', 'Alice'),
+    issueType: 'Sub-task',
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+  const standalone = teamTask('COL-9', 'Standalone');
+
+  const rows = [
+    {
+      issueKey: 'BASE-3511',
+      summary: 'Subtask one',
+      status: 'In Progress',
+      programKey: null,
+      assignee: 'Alice',
+      seconds: 3 * 3600,
+      logCount: 2,
+      percentOfUser: 75,
+      isAssignee: true,
+      jiraLinked: true,
+    },
+    {
+      issueKey: 'BASE-3454',
+      summary: 'Parent task',
+      status: 'In Progress',
+      programKey: null,
+      assignee: 'Alice',
+      seconds: 1 * 3600,
+      logCount: 1,
+      percentOfUser: 25,
+      isAssignee: true,
+      jiraLinked: true,
+    },
+    {
+      issueKey: 'COL-9',
+      summary: 'Standalone',
+      status: 'In Progress',
+      programKey: null,
+      assignee: 'Alice',
+      seconds: 2 * 3600,
+      logCount: 1,
+      percentOfUser: 50,
+      isAssignee: true,
+      jiraLinked: true,
+    },
+  ];
+
+  const grouped = groupPersonIssueRows(rows, [parent, sub, standalone]);
+  assert.equal(grouped.length, 3);
+  assert.equal(grouped[0]?.issueKey, 'BASE-3454');
+  assert.equal(grouped[0]?.subtaskCount, 1);
+  assert.equal(grouped[1]?.issueKey, 'BASE-3511');
+  assert.equal(grouped[1]?.isSubtask, true);
+  assert.equal(grouped[1]?.depth, 1);
+  assert.equal(grouped[2]?.issueKey, 'COL-9');
+  assert.equal(grouped[2]?.isSubtask, false);
+});
+
+test('groupPersonIssueRows creates parent header when only subtask has worklogs', () => {
+  const parent = teamTask('BASE-3454', 'Parent task');
+  const sub = {
+    ...teamTask('BASE-3511', 'Subtask only'),
+    issueType: 'Sub-task',
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+
+  const rows = [
+    {
+      issueKey: 'BASE-3511',
+      summary: 'Subtask only',
+      status: 'In Progress',
+      programKey: null,
+      assignee: null,
+      seconds: 4 * 3600,
+      logCount: 1,
+      percentOfUser: 100,
+      isAssignee: false,
+      jiraLinked: true,
+    },
+  ];
+
+  const grouped = groupPersonIssueRows(rows, [parent, sub]);
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0]?.issueKey, 'BASE-3454');
+  assert.equal(grouped[0]?.seconds, 0);
+  assert.equal(grouped[0]?.subtaskCount, 1);
+  assert.equal(grouped[1]?.issueKey, 'BASE-3511');
+  assert.equal(grouped[1]?.isSubtask, true);
+});
+
+test('rollupSubtasksInTaskWorkloads merges subtask hours into parent', () => {
+  const parent = teamTask('BASE-3454', 'Parent task');
+  const sub = {
+    ...teamTask('BASE-3511', 'Subtask'),
+    issueType: 'Sub-task',
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+  const standalone = teamTask('COL-1', 'Standalone');
+
+  const tasks = buildTaskWorkloads(
+    [
+      {
+        user: { accountId: 'u1', displayName: 'Alice' },
+        totalSeconds: 5 * 3600,
+        inconsistencies: [],
+        issueBreakdown: [
+          { issueKey: 'BASE-3454', seconds: 1 * 3600, logCount: 1 },
+          { issueKey: 'BASE-3511', seconds: 3 * 3600, logCount: 2 },
+          { issueKey: 'COL-1', seconds: 1 * 3600, logCount: 1 },
+        ],
+      },
+    ],
+    [parent, sub, standalone],
+    ['Collector'],
+  );
+
+  const rolled = rollupSubtasksInTaskWorkloads(tasks, [parent, sub, standalone]);
+  assert.equal(rolled.length, 2);
+  assert.equal(rolled[0]?.issueKey, 'BASE-3454');
+  assert.equal(rolled[0]?.totalSeconds, 4 * 3600);
+  assert.equal(rolled[1]?.issueKey, 'COL-1');
 });
