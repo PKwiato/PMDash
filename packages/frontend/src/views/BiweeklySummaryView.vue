@@ -224,7 +224,7 @@
           <div v-if="visiblePersonWorkloads.length > 0" class="px-lg pt-lg pb-md border-b border-outline-variant">
             <h3 class="text-sm font-bold text-on-surface mb-1">Rozkład godzin po taskach</h3>
             <p class="text-xs text-on-surface-variant mb-md">
-              Wszystkie taski z tabeli poniżej — najedź na wycinek, aby zobaczyć kto ile zaraportował.
+              Taski zespołu — subtaski pogrupowane pod rodzicem. Najedź na wycinek, aby zobaczyć kto ile zaraportował.
             </p>
             <ClockworkTasksPieChart
               :tasks="taskWorkloads"
@@ -254,7 +254,7 @@
               <div class="flex-1 min-w-0">
                 <div class="font-bold text-on-surface">{{ person.user.displayName }}</div>
                 <div class="text-xs text-on-surface-variant">
-                  {{ person.issues.length }} tasków
+                  {{ personTaskCountLabel(person.issues) }}
                   <span v-if="person.inconsistencyCount > 0" class="text-amber-600 dark:text-amber-400">
                     · {{ person.inconsistencyCount }} niespójności
                   </span>
@@ -286,16 +286,34 @@
                   </thead>
                   <tbody class="divide-y divide-outline-variant">
                     <tr
-                      v-for="row in person.issues"
-                      :key="row.issueKey"
+                      v-for="row in groupedPersonIssues(person.issues)"
+                      :key="row.issueKey + (row.isSubtask ? '-sub' : '')"
                       class="hover:bg-surface-container/50 cursor-pointer"
+                      :class="row.isSubtask ? 'bg-surface-container-low/20' : ''"
                       @click="$router.push(`/tasks/${row.issueKey}`)"
                     >
-                      <td class="px-md py-2 font-bold text-secondary whitespace-nowrap">{{ row.issueKey }}</td>
-                      <td class="px-md py-2 text-on-surface max-w-[220px]">
-                        <div class="truncate">{{ row.summary }}</div>
+                      <td
+                        class="px-md py-2 font-bold whitespace-nowrap"
+                        :class="row.isSubtask ? 'text-secondary/80 pl-8' : 'text-secondary'"
+                      >
+                        <span v-if="row.isSubtask" class="material-symbols-outlined text-[14px] align-middle mr-1 text-on-surface-variant">subdirectory_arrow_right</span>
+                        {{ row.issueKey }}
+                      </td>
+                      <td
+                        class="px-md py-2 text-on-surface max-w-[220px]"
+                        :class="row.isSubtask ? 'pl-8' : ''"
+                      >
+                        <div class="truncate" :class="row.isSubtask ? 'text-sm' : ''">{{ row.summary }}</div>
                         <div class="flex flex-wrap gap-1 mt-0.5">
                           <span v-if="row.programKey" class="text-[10px] text-on-surface-variant">{{ row.programKey }}</span>
+                          <span
+                            v-if="row.subtaskCount"
+                            class="text-[10px] font-bold uppercase text-on-surface-variant"
+                          >{{ row.subtaskCount }} subtasków</span>
+                          <span
+                            v-if="row.isSubtask"
+                            class="text-[10px] font-bold uppercase text-on-surface-variant"
+                          >subtask</span>
                           <span
                             v-if="!row.jiraLinked"
                             class="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400"
@@ -307,9 +325,15 @@
                         </div>
                       </td>
                       <td class="px-md py-2 text-xs text-on-surface-variant whitespace-nowrap">{{ row.status }}</td>
-                      <td class="px-md py-2 text-right tabular-nums font-medium">{{ formatHours(row.seconds) }}</td>
-                      <td class="px-md py-2 text-right tabular-nums text-on-surface-variant">{{ row.percentOfUser }}%</td>
-                      <td class="px-md py-2 text-center tabular-nums text-on-surface-variant">{{ row.logCount }}</td>
+                      <td class="px-md py-2 text-right tabular-nums font-medium">
+                        {{ row.seconds > 0 ? formatHours(row.seconds) : '—' }}
+                      </td>
+                      <td class="px-md py-2 text-right tabular-nums text-on-surface-variant">
+                        {{ row.seconds > 0 ? `${row.percentOfUser}%` : '—' }}
+                      </td>
+                      <td class="px-md py-2 text-center tabular-nums text-on-surface-variant">
+                        {{ row.logCount > 0 ? row.logCount : '—' }}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -427,10 +451,14 @@ import {
   buildPersonWorkloads,
   buildFilteredOutPersonWorkloads,
   buildTaskWorkloads,
+  groupPersonIssueRows,
+  rollupSubtasksInTaskWorkloads,
   totalTeamWorklogSeconds,
   teamFilterFromLoadedIssues,
   type CompletedTaskRow,
   type AtRiskTaskRow,
+  type PersonIssueWorkloadRow,
+  type GroupedPersonIssueRow,
 } from '../utils/biweeklySummary';
 
 const jiraStore = useJiraStore();
@@ -499,13 +527,30 @@ const visibleFilteredOutPersonWorkloads = computed(() =>
 );
 
 const taskWorkloads = computed(() =>
-  buildTaskWorkloads(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
+  rollupSubtasksInTaskWorkloads(
+    buildTaskWorkloads(clockworkStore.analysis, jiraStore.issues, selectedTeams.value),
+    jiraStore.issues,
+  ),
 );
 
 const totalHours = computed(() => totalTeamWorklogSeconds(personWorkloads.value) / 3600);
 
 function formatHours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
+}
+
+function groupedPersonIssues(issues: readonly PersonIssueWorkloadRow[]): GroupedPersonIssueRow[] {
+  return groupPersonIssueRows(issues, jiraStore.issues);
+}
+
+function personTaskCountLabel(issues: readonly PersonIssueWorkloadRow[]): string {
+  const grouped = groupPersonIssueRows(issues, jiraStore.issues);
+  const subtasks = grouped.filter(r => r.isSubtask).length;
+  const topLevel = grouped.filter(r => !r.isSubtask).length;
+  if (subtasks === 0) {
+    return `${topLevel} ${topLevel === 1 ? 'task' : topLevel < 5 ? 'taski' : 'tasków'}`;
+  }
+  return `${topLevel} ${topLevel === 1 ? 'task' : topLevel < 5 ? 'taski' : 'tasków'} · ${subtasks} subtasków`;
 }
 
 function togglePerson(accountId: string) {

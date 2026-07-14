@@ -5,6 +5,7 @@ import { metricBucketForIssue } from './jiraIssueStatus';
 import { buildProgramsFromIssues, collectStatscoreTeams, taskProgramKey } from './jiraPrograms';
 import { teamMatchesSelection } from './jiraTeamFilter';
 import { isProgramIssueType } from './jiraEpicColors';
+import { immediateTaskParentKey } from './jiraIssueHierarchy';
 
 export interface PersonIssueWorkloadRow {
   issueKey: string;
@@ -17,6 +18,12 @@ export interface PersonIssueWorkloadRow {
   percentOfUser: number;
   isAssignee: boolean;
   jiraLinked: boolean;
+}
+
+export interface GroupedPersonIssueRow extends PersonIssueWorkloadRow {
+  depth: number;
+  isSubtask: boolean;
+  subtaskCount?: number;
 }
 
 export interface PersonWorkload {
@@ -544,6 +551,185 @@ export function buildPersonWorkloads(
     return a.user.displayName.localeCompare(b.user.displayName, 'pl');
   });
   return workloads;
+}
+
+function syntheticParentRow(
+  parentKey: string,
+  parentIssue: JiraIssueDto | undefined,
+  allIssues: readonly JiraIssueDto[],
+): PersonIssueWorkloadRow {
+  return {
+    issueKey: parentIssue?.key ?? parentKey,
+    summary: parentIssue?.summary ?? parentKey,
+    status: parentIssue?.status ?? '—',
+    programKey: parentIssue ? taskProgramKey(parentIssue, allIssues) : null,
+    assignee: parentIssue?.assignee ?? null,
+    seconds: 0,
+    logCount: 0,
+    percentOfUser: 0,
+    isAssignee: false,
+    jiraLinked: parentIssue != null,
+  };
+}
+
+/**
+ * Groups subtasks under their parent task for display.
+ * Parents without own worklogs get a header row; children are indented.
+ */
+export function groupPersonIssueRows(
+  rows: readonly PersonIssueWorkloadRow[],
+  allIssues: readonly JiraIssueDto[],
+): GroupedPersonIssueRow[] {
+  if (rows.length === 0) return [];
+
+  const issueByKey = new Map(allIssues.map(i => [i.key.toUpperCase(), i]));
+  const rowByKey = new Map(rows.map(r => [r.issueKey.toUpperCase(), r]));
+  const childrenByParent = new Map<string, PersonIssueWorkloadRow[]>();
+
+  for (const row of rows) {
+    const issue = issueByKey.get(row.issueKey.toUpperCase());
+    const parentKey = issue ? immediateTaskParentKey(issue) : null;
+    if (!parentKey) continue;
+    const normalized = parentKey.toUpperCase();
+    const list = childrenByParent.get(normalized) ?? [];
+    list.push(row);
+    childrenByParent.set(normalized, list);
+  }
+
+  if (childrenByParent.size === 0) {
+    return rows.map(row => ({ ...row, depth: 0, isSubtask: false }));
+  }
+
+  type IssueGroup = {
+    parentKey: string;
+    parentRow: PersonIssueWorkloadRow;
+    children: PersonIssueWorkloadRow[];
+    groupSeconds: number;
+  };
+
+  const groups: IssueGroup[] = [];
+  const groupedParentKeys = new Set<string>();
+
+  for (const [parentKey, children] of childrenByParent.entries()) {
+    const parentIssue = issueByKey.get(parentKey);
+    const parentRow = rowByKey.get(parentKey) ?? syntheticParentRow(parentKey, parentIssue, allIssues);
+    const groupSeconds =
+      parentRow.seconds + children.reduce((sum, child) => sum + child.seconds, 0);
+    children.sort((a, b) => b.seconds - a.seconds);
+    groups.push({ parentKey, parentRow, children, groupSeconds });
+    groupedParentKeys.add(parentKey);
+  }
+
+  for (const row of rows) {
+    const normalized = row.issueKey.toUpperCase();
+    if (groupedParentKeys.has(normalized)) continue;
+    const issue = issueByKey.get(normalized);
+    if (issue && immediateTaskParentKey(issue)) continue;
+    groups.push({
+      parentKey: normalized,
+      parentRow: row,
+      children: [],
+      groupSeconds: row.seconds,
+    });
+  }
+
+  groups.sort((a, b) => b.groupSeconds - a.groupSeconds);
+
+  const out: GroupedPersonIssueRow[] = [];
+  for (const group of groups) {
+    const hasChildren = group.children.length > 0;
+    out.push({
+      ...group.parentRow,
+      depth: 0,
+      isSubtask: false,
+      subtaskCount: hasChildren ? group.children.length : undefined,
+    });
+    for (const child of group.children) {
+      out.push({ ...child, depth: 1, isSubtask: true });
+    }
+  }
+  return out;
+}
+
+/** Rolls subtask hours into parent tasks for team-level task charts. */
+export function rollupSubtasksInTaskWorkloads(
+  tasks: readonly TaskWorkloadRow[],
+  allIssues: readonly JiraIssueDto[],
+): TaskWorkloadRow[] {
+  if (tasks.length === 0) return [];
+
+  const issueByKey = new Map(allIssues.map(i => [i.key.toUpperCase(), i]));
+  const taskByKey = new Map(tasks.map(t => [t.issueKey.toUpperCase(), t]));
+  const childrenByParent = new Map<string, TaskWorkloadRow[]>();
+
+  for (const task of tasks) {
+    const issue = issueByKey.get(task.issueKey.toUpperCase());
+    const parentKey = issue ? immediateTaskParentKey(issue) : null;
+    if (!parentKey) continue;
+    const normalized = parentKey.toUpperCase();
+    const list = childrenByParent.get(normalized) ?? [];
+    list.push(task);
+    childrenByParent.set(normalized, list);
+  }
+
+  if (childrenByParent.size === 0) return [...tasks];
+
+  const merged = new Map<string, TaskWorkloadRow>();
+
+  const mergeContributors = (
+    base: TaskPersonContribution[],
+    extra: TaskPersonContribution[],
+  ): TaskPersonContribution[] => {
+    const byId = new Map(base.map(c => [c.accountId, { ...c }]));
+    for (const c of extra) {
+      const existing = byId.get(c.accountId);
+      if (existing) {
+        existing.seconds += c.seconds;
+      } else {
+        byId.set(c.accountId, { ...c });
+      }
+    }
+    return [...byId.values()].sort((a, b) => b.seconds - a.seconds);
+  };
+
+  for (const [parentKey, children] of childrenByParent.entries()) {
+    const parentIssue = issueByKey.get(parentKey);
+    const parentTask = taskByKey.get(parentKey);
+    const childSeconds = children.reduce((sum, c) => sum + c.totalSeconds, 0);
+    const childContributors = children.flatMap(c => c.contributors);
+
+    if (parentTask) {
+      merged.set(parentKey, {
+        ...parentTask,
+        totalSeconds: parentTask.totalSeconds + childSeconds,
+        contributors: mergeContributors(parentTask.contributors, childContributors),
+      });
+    } else {
+      merged.set(parentKey, {
+        issueKey: parentIssue?.key ?? parentKey,
+        summary: parentIssue?.summary ?? parentKey,
+        totalSeconds: childSeconds,
+        percentOfTeam: 0,
+        contributors: mergeContributors([], childContributors),
+      });
+    }
+  }
+
+  for (const task of tasks) {
+    const normalized = task.issueKey.toUpperCase();
+    const issue = issueByKey.get(normalized);
+    if (issue && immediateTaskParentKey(issue)) continue;
+    if (merged.has(normalized)) continue;
+    merged.set(normalized, { ...task });
+  }
+
+  const totalSeconds = [...merged.values()].reduce((sum, t) => sum + t.totalSeconds, 0);
+  const rolled = [...merged.values()].map(task => ({
+    ...task,
+    percentOfTeam: totalSeconds > 0 ? Math.round((task.totalSeconds / totalSeconds) * 100) : 0,
+  }));
+  rolled.sort((a, b) => b.totalSeconds - a.totalSeconds);
+  return rolled;
 }
 
 /** Board members with Clockwork hours but no tasks passing the team filter. */

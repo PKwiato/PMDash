@@ -7,6 +7,8 @@ import {
   buildPersonWorkloads,
   buildFilteredOutPersonWorkloads,
   buildTaskWorkloads,
+  groupPersonIssueRows,
+  rollupSubtasksInTaskWorkloads,
   collectClockworkIssueKeys,
   collectRelatedProgramKeysForIssues,
   collectParentChainKeys,
@@ -197,4 +199,128 @@ test('statscoreTeam on fetched issue passes filter without program on overview',
 
   const workloads = buildPersonWorkloads(cwOnly, allIssues, ['Collector']);
   assert.equal(workloads[0]?.issues[0]?.issueKey, 'COL-77');
+});
+
+test('groupPersonIssueRows nests subtasks under parent task', () => {
+  const parent = teamTask('BASE-3454', 'Parent task', 'Alice');
+  const sub = {
+    ...teamTask('BASE-3511', 'Subtask one', 'Alice'),
+    issueType: 'Sub-task',
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+  const standalone = teamTask('COL-9', 'Standalone');
+
+  const rows = [
+    {
+      issueKey: 'BASE-3511',
+      summary: 'Subtask one',
+      status: 'In Progress',
+      programKey: null,
+      assignee: 'Alice',
+      seconds: 3 * 3600,
+      logCount: 2,
+      percentOfUser: 75,
+      isAssignee: true,
+      jiraLinked: true,
+    },
+    {
+      issueKey: 'BASE-3454',
+      summary: 'Parent task',
+      status: 'In Progress',
+      programKey: null,
+      assignee: 'Alice',
+      seconds: 1 * 3600,
+      logCount: 1,
+      percentOfUser: 25,
+      isAssignee: true,
+      jiraLinked: true,
+    },
+    {
+      issueKey: 'COL-9',
+      summary: 'Standalone',
+      status: 'In Progress',
+      programKey: null,
+      assignee: 'Alice',
+      seconds: 2 * 3600,
+      logCount: 1,
+      percentOfUser: 50,
+      isAssignee: true,
+      jiraLinked: true,
+    },
+  ];
+
+  const grouped = groupPersonIssueRows(rows, [parent, sub, standalone]);
+  assert.equal(grouped.length, 3);
+  assert.equal(grouped[0]?.issueKey, 'BASE-3454');
+  assert.equal(grouped[0]?.subtaskCount, 1);
+  assert.equal(grouped[1]?.issueKey, 'BASE-3511');
+  assert.equal(grouped[1]?.isSubtask, true);
+  assert.equal(grouped[1]?.depth, 1);
+  assert.equal(grouped[2]?.issueKey, 'COL-9');
+  assert.equal(grouped[2]?.isSubtask, false);
+});
+
+test('groupPersonIssueRows creates parent header when only subtask has worklogs', () => {
+  const parent = teamTask('BASE-3454', 'Parent task');
+  const sub = {
+    ...teamTask('BASE-3511', 'Subtask only'),
+    issueType: 'Sub-task',
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+
+  const rows = [
+    {
+      issueKey: 'BASE-3511',
+      summary: 'Subtask only',
+      status: 'In Progress',
+      programKey: null,
+      assignee: null,
+      seconds: 4 * 3600,
+      logCount: 1,
+      percentOfUser: 100,
+      isAssignee: false,
+      jiraLinked: true,
+    },
+  ];
+
+  const grouped = groupPersonIssueRows(rows, [parent, sub]);
+  assert.equal(grouped.length, 2);
+  assert.equal(grouped[0]?.issueKey, 'BASE-3454');
+  assert.equal(grouped[0]?.seconds, 0);
+  assert.equal(grouped[0]?.subtaskCount, 1);
+  assert.equal(grouped[1]?.issueKey, 'BASE-3511');
+  assert.equal(grouped[1]?.isSubtask, true);
+});
+
+test('rollupSubtasksInTaskWorkloads merges subtask hours into parent', () => {
+  const parent = teamTask('BASE-3454', 'Parent task');
+  const sub = {
+    ...teamTask('BASE-3511', 'Subtask'),
+    issueType: 'Sub-task',
+    parent: { id: 'p1', key: 'BASE-3454', summary: 'Parent', status: 'Open', priority: 'M', issueType: 'Zadanie' },
+  };
+  const standalone = teamTask('COL-1', 'Standalone');
+
+  const tasks = buildTaskWorkloads(
+    [
+      {
+        user: { accountId: 'u1', displayName: 'Alice' },
+        totalSeconds: 5 * 3600,
+        inconsistencies: [],
+        issueBreakdown: [
+          { issueKey: 'BASE-3454', seconds: 1 * 3600, logCount: 1 },
+          { issueKey: 'BASE-3511', seconds: 3 * 3600, logCount: 2 },
+          { issueKey: 'COL-1', seconds: 1 * 3600, logCount: 1 },
+        ],
+      },
+    ],
+    [parent, sub, standalone],
+    ['Collector'],
+  );
+
+  const rolled = rollupSubtasksInTaskWorkloads(tasks, [parent, sub, standalone]);
+  assert.equal(rolled.length, 2);
+  assert.equal(rolled[0]?.issueKey, 'BASE-3454');
+  assert.equal(rolled[0]?.totalSeconds, 4 * 3600);
+  assert.equal(rolled[1]?.issueKey, 'COL-1');
 });
